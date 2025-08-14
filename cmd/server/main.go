@@ -4,8 +4,9 @@ import (
 	"fmt"
 
 	metricshandler "github.com/7StaSH7/gometrics/internal/handler/metrics"
-	"github.com/7StaSH7/gometrics/internal/model"
+	"github.com/7StaSH7/gometrics/internal/repository"
 	metricsservice "github.com/7StaSH7/gometrics/internal/service/metrics"
+	"github.com/7StaSH7/gometrics/internal/storage"
 	"github.com/gin-gonic/gin"
 )
 
@@ -18,9 +19,11 @@ func main() {
 func run() error {
 	server := gin.Default()
 
-	model.NewStorage()
+	stor := storage.NewStorage()
 
-	mSer := metricsservice.New()
+	storRep := repository.NewMemStorageRepository(stor)
+
+	mSer := metricsservice.New(storRep)
 
 	mHan := metricshandler.NewHandler(mSer)
 

@@ -1,14 +1,17 @@
-package model
+package storage
 
 type MemStorage struct {
 	gauges  map[string]float64
 	counter map[string]int64
 }
 
-var Storage *MemStorage
+type MemStorageInterface interface {
+	Replace(name string, value float64)
+	Add(name string, value int64)
+}
 
-func NewStorage() {
-	Storage = &MemStorage{
+func NewStorage() MemStorageInterface {
+	return &MemStorage{
 		gauges:  make(map[string]float64),
 		counter: make(map[string]int64),
 	}
