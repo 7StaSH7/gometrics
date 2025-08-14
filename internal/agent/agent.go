@@ -49,7 +49,7 @@ var m Metric
 var ms runtime.MemStats
 
 type Agent struct {
-	baseUrl string
+	baseURL string
 	*http.Client
 }
 
@@ -60,7 +60,7 @@ type AgentInterface interface {
 
 func New() AgentInterface {
 	return &Agent{
-		baseUrl: "http://localhost:8080",
+		baseURL: "http://localhost:8080",
 		Client:  &http.Client{},
 	}
 }
@@ -115,7 +115,7 @@ func (a *Agent) GetMetric() {
 }
 
 func (a *Agent) request(mType, name string, value any) error {
-	resp, err := a.Client.Post(fmt.Sprintf(`%s/update/%s/%s/%v`, a.baseUrl, mType, name, value), "text/plain", nil)
+	resp, err := a.Client.Post(fmt.Sprintf(`%s/update/%s/%s/%v`, a.baseURL, mType, name, value), "text/plain", nil)
 	if err != nil {
 		return err
 	}

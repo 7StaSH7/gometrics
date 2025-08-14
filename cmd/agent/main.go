@@ -18,13 +18,8 @@ func main() {
 		}
 	}()
 
-	rt := time.NewTicker(reportInterval)
-	go func() {
-		for range rt.C {
-			a.SendMetrics()
-		}
-	}()
-
 	for {
+		a.SendMetrics()
+		time.Sleep(reportInterval)
 	}
 }
