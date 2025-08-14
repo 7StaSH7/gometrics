@@ -115,7 +115,7 @@ func (a *Agent) GetMetric() {
 }
 
 func (a *Agent) request(mType, name string, value any) error {
-	resp, err := a.Client.Post(fmt.Sprintf(`%s/update/%s/%s/%v`, a.baseURL, mType, name, value), "text/plain", nil)
+	resp, err := a.Client.Post(fmt.Sprintf(`http://%s/update/%s/%s/%v`, a.baseURL, mType, name, value), "text/plain", nil)
 	if err != nil {
 		return err
 	}
