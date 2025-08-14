@@ -3,7 +3,8 @@ package metrics
 import "github.com/7StaSH7/gometrics/internal/repository"
 
 type MetricsService interface {
-	UpdateMetric(mType, name string, value any) error
+	Update(mType, name string, value any) error
+	GetOne(mType, name string) string
 }
 
 type metricsService struct {

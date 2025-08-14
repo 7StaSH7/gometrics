@@ -16,10 +16,16 @@ type MockMetricsService struct {
 	mock.Mock
 }
 
-func (m *MockMetricsService) UpdateMetric(mType, name string, value any) error {
+func (m *MockMetricsService) Update(mType, name string, value any) error {
 	args := m.Called(mType, name, value)
 
 	return args.Error(0)
+}
+
+func (m *MockMetricsService) GetOne(mType, name string) string {
+	args := m.Called(mType, name)
+
+	return args.String(0)
 }
 
 func setupTestRouter(service *MockMetricsService) *gin.Engine {
@@ -47,7 +53,7 @@ func TestUpdate(t *testing.T) {
 			name: "successful gauge update",
 			url:  "/update/gauge/temperature/23.5",
 			setupMock: func(m *MockMetricsService) {
-				m.On("UpdateMetric", model.Gauge, "temperature", 23.5).Return(nil)
+				m.On("Update", model.Gauge, "temperature", 23.5).Return(nil)
 			},
 			expectedStatus: http.StatusOK,
 			expectedHeader: "text/plain; charset=utf-8",
@@ -56,7 +62,7 @@ func TestUpdate(t *testing.T) {
 			name: "successful counter update",
 			url:  "/update/counter/requests/100",
 			setupMock: func(m *MockMetricsService) {
-				m.On("UpdateMetric", model.Counter, "requests", int64(100)).Return(nil)
+				m.On("Update", model.Counter, "requests", int64(100)).Return(nil)
 			},
 			expectedStatus: http.StatusOK,
 			expectedHeader: "text/plain; charset=utf-8",
@@ -65,7 +71,7 @@ func TestUpdate(t *testing.T) {
 			name: "successful gauge update with negative value",
 			url:  "/update/gauge/temperature/-15.3",
 			setupMock: func(m *MockMetricsService) {
-				m.On("UpdateMetric", model.Gauge, "temperature", -15.3).Return(nil)
+				m.On("Update", model.Gauge, "temperature", -15.3).Return(nil)
 			},
 			expectedStatus: http.StatusOK,
 			expectedHeader: "text/plain; charset=utf-8",
@@ -74,7 +80,7 @@ func TestUpdate(t *testing.T) {
 			name: "successful gauge update with zero value",
 			url:  "/update/gauge/pressure/0.0",
 			setupMock: func(m *MockMetricsService) {
-				m.On("UpdateMetric", model.Gauge, "pressure", 0.0).Return(nil)
+				m.On("Update", model.Gauge, "pressure", 0.0).Return(nil)
 			},
 			expectedStatus: http.StatusOK,
 			expectedHeader: "text/plain; charset=utf-8",
@@ -83,7 +89,7 @@ func TestUpdate(t *testing.T) {
 			name: "successful counter update with zero value",
 			url:  "/update/counter/errors/0",
 			setupMock: func(m *MockMetricsService) {
-				m.On("UpdateMetric", model.Counter, "errors", int64(0)).Return(nil)
+				m.On("Update", model.Counter, "errors", int64(0)).Return(nil)
 			},
 			expectedStatus: http.StatusOK,
 			expectedHeader: "text/plain; charset=utf-8",
@@ -127,7 +133,7 @@ func TestUpdate(t *testing.T) {
 			name: "service error for gauge update",
 			url:  "/update/gauge/temperature/25.0",
 			setupMock: func(m *MockMetricsService) {
-				m.On("UpdateMetric", model.Gauge, "temperature", 25.0).Return(errors.New("service error"))
+				m.On("Update", model.Gauge, "temperature", 25.0).Return(errors.New("service error"))
 			},
 			expectedStatus: http.StatusBadRequest,
 			expectedHeader: "text/plain; charset=utf-8",
@@ -136,7 +142,7 @@ func TestUpdate(t *testing.T) {
 			name: "service error for counter update",
 			url:  "/update/counter/requests/50",
 			setupMock: func(m *MockMetricsService) {
-				m.On("UpdateMetric", model.Counter, "requests", int64(50)).Return(errors.New("service error"))
+				m.On("Update", model.Counter, "requests", int64(50)).Return(errors.New("service error"))
 			},
 			expectedStatus: http.StatusBadRequest,
 			expectedHeader: "text/plain; charset=utf-8",
@@ -145,7 +151,7 @@ func TestUpdate(t *testing.T) {
 			name: "large gauge value",
 			url:  "/update/gauge/temperature/999999.999999",
 			setupMock: func(m *MockMetricsService) {
-				m.On("UpdateMetric", model.Gauge, "temperature", 999999.999999).Return(nil)
+				m.On("Update", model.Gauge, "temperature", 999999.999999).Return(nil)
 			},
 			expectedStatus: http.StatusOK,
 			expectedHeader: "text/plain; charset=utf-8",
@@ -154,7 +160,7 @@ func TestUpdate(t *testing.T) {
 			name: "large counter value",
 			url:  "/update/counter/requests/9223372036854775807",
 			setupMock: func(m *MockMetricsService) {
-				m.On("UpdateMetric", model.Counter, "requests", int64(9223372036854775807)).Return(nil)
+				m.On("Update", model.Counter, "requests", int64(9223372036854775807)).Return(nil)
 			},
 			expectedStatus: http.StatusOK,
 			expectedHeader: "text/plain; charset=utf-8",
