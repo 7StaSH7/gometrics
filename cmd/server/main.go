@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 
 	metricshandler "github.com/7StaSH7/gometrics/internal/handler/metrics"
@@ -9,6 +10,10 @@ import (
 	"github.com/7StaSH7/gometrics/internal/storage"
 	"github.com/gin-gonic/gin"
 )
+
+var args struct {
+	a string
+}
 
 func main() {
 	if err := run(); err != nil {
@@ -30,5 +35,10 @@ func run() error {
 
 	mHan.Register(server)
 
-	return server.Run(":8080")
+	return server.Run(args.a)
+}
+
+func init() {
+	flag.StringVar(&args.a, "a", "localhost:8080", "address to listen on")
+	flag.Parse()
 }

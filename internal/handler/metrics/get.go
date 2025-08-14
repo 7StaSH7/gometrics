@@ -12,7 +12,7 @@ type GetMetricInput struct {
 	Name  string `uri:"name"`
 }
 
-func (h *metricsHandler) Get(c *gin.Context) {
+func (h *metricsHandler) GetOne(c *gin.Context) {
 	c.Writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
 	var input GetMetricInput

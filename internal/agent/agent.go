@@ -58,9 +58,9 @@ type AgentInterface interface {
 	SendMetrics()
 }
 
-func New() AgentInterface {
+func New(baseURL string) AgentInterface {
 	return &Agent{
-		baseURL: "http://localhost:8080",
+		baseURL: baseURL,
 		Client:  &http.Client{},
 	}
 }

@@ -1,17 +1,22 @@
 package main
 
 import (
+	"flag"
 	"time"
 
 	"github.com/7StaSH7/gometrics/internal/agent"
 )
 
-var pollInterval, reportInterval = 2 * time.Second, 10 * time.Second
+var args struct {
+	a string
+	r int
+	p int
+}
 
 func main() {
-	a := agent.New()
+	a := agent.New(args.a)
 
-	mt := time.NewTicker(pollInterval)
+	mt := time.NewTicker(time.Duration(args.p) * time.Second)
 	go func() {
 		for range mt.C {
 			a.GetMetric()
@@ -20,6 +25,13 @@ func main() {
 
 	for {
 		a.SendMetrics()
-		time.Sleep(reportInterval)
+		time.Sleep(time.Duration(args.r) * time.Second)
 	}
+}
+
+func init() {
+	flag.StringVar(&args.a, "a", "localhost:8080", "address to listen on")
+	flag.IntVar(&args.r, "r", 10, "report interval")
+	flag.IntVar(&args.p, "p", 2, "poll interval")
+	flag.Parse()
 }

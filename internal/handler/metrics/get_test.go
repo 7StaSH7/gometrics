@@ -18,7 +18,7 @@ func setupGetTestRouter(service *MockMetricsService) *gin.Engine {
 		metricsService: service,
 	}
 
-	router.GET("/value/:type/:name", handler.Get)
+	router.GET("/value/:type/:name", handler.GetOne)
 
 	return router
 }
