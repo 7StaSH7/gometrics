@@ -21,5 +21,5 @@ func NewHandler(s metrics.MetricsService) MetricsHandler {
 }
 
 func (h *metricsHandler) Register(e *gin.Engine) {
-	e.POST("/update/:type/:name/:value/", h.Update)
+	e.POST("/update/:type/:name/:value", h.Update)
 }
