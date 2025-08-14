@@ -22,13 +22,13 @@ func (m *MockMetricsService) Update(mType, name string, value any) error {
 	return args.Error(0)
 }
 
-func (m *MockMetricsService) GetOne(mType, name string) string {
-	args := m.Called(mType, name)
+func (m *MockMetricsService) GetMany() map[string]string {
+	args := m.Called()
 
-	return args.String(0)
+	return args.Get(0).(map[string]string)
 }
 
-func setupTestRouter(service *MockMetricsService) *gin.Engine {
+func setupUpdateTestRouter(service *MockMetricsService) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 
@@ -179,7 +179,7 @@ func TestUpdate(t *testing.T) {
 			mockService := new(MockMetricsService)
 			tt.setupMock(mockService)
 
-			router := setupTestRouter(mockService)
+			router := setupUpdateTestRouter(mockService)
 
 			req, err := http.NewRequest(http.MethodPost, tt.url, nil)
 			assert.NoError(t, err)

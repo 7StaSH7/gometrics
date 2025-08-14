@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func setupTestRouterForGet(service *MockMetricsService) *gin.Engine {
+func setupGetTestRouter(service *MockMetricsService) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 
@@ -21,6 +21,12 @@ func setupTestRouterForGet(service *MockMetricsService) *gin.Engine {
 	router.GET("/value/:type/:name", handler.Get)
 
 	return router
+}
+
+func (m *MockMetricsService) GetOne(mType, name string) string {
+	args := m.Called(mType, name)
+
+	return args.String(0)
 }
 
 func TestGet(t *testing.T) {
@@ -167,7 +173,7 @@ func TestGet(t *testing.T) {
 			mockService := new(MockMetricsService)
 			tt.setupMock(mockService)
 
-			router := setupTestRouterForGet(mockService)
+			router := setupGetTestRouter(mockService)
 
 			req, err := http.NewRequest(http.MethodGet, tt.url, nil)
 			assert.NoError(t, err)

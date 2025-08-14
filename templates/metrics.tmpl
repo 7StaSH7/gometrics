@@ -1,0 +1,11 @@
+<html class="">
+  <h3>
+    {{ range $key, $value := .metrics }}<div>{{ $key }}: {{ $value }}</div>{{else}}<div><strong>нет метрик</strong></div>{{end}}
+  </h3>
+</html>
+<style>
+body {
+  background-color: #f0f0f0;
+  font-family: Arial, sans-serif;
+}
+</style>

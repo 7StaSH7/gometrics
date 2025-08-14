@@ -11,7 +11,8 @@ type memStorageRepository struct {
 type MemStorageRepository interface {
 	Replace(name string, value float64)
 	Add(name string, value int64)
-	Read(mType, name string) string
+	ReadOne(mType, name string) string
+	ReadMany() map[string]string
 }
 
 func NewMemStorageRepository(storage storage.MemStorageInterface) MemStorageRepository {
@@ -28,6 +29,10 @@ func (s *memStorageRepository) Add(name string, value int64) {
 	s.storage.Add(name, value)
 }
 
-func (s *memStorageRepository) Read(mType, name string) string {
-	return s.storage.Read(mType, name)
+func (s *memStorageRepository) ReadOne(mType, name string) string {
+	return s.storage.ReadOne(mType, name)
+}
+
+func (s *memStorageRepository) ReadMany() map[string]string {
+	return s.storage.ReadMany()
 }
