@@ -18,6 +18,7 @@ func main() {
 
 func run() error {
 	server := gin.Default()
+	server.LoadHTMLGlob("templates/*")
 
 	stor := storage.NewStorage()
 

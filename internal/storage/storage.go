@@ -14,7 +14,8 @@ type MemStorage struct {
 type MemStorageInterface interface {
 	Replace(name string, value float64)
 	Add(name string, value int64)
-	Read(mType, name string) string
+	ReadOne(mType, name string) string
+	ReadMany() map[string]string
 }
 
 func NewStorage() MemStorageInterface {
@@ -32,7 +33,7 @@ func (s *MemStorage) Add(name string, value int64) {
 	s.counter[name] += value
 }
 
-func (s *MemStorage) Read(mType, name string) string {
+func (s *MemStorage) ReadOne(mType, name string) string {
 	switch mType {
 	case model.Counter:
 		v, ok := s.counter[name]
@@ -51,4 +52,18 @@ func (s *MemStorage) Read(mType, name string) string {
 	}
 
 	return ""
+}
+
+func (s *MemStorage) ReadMany() map[string]string {
+	result := make(map[string]string)
+
+	for name, value := range s.counter {
+		result[name] = fmt.Sprint(value)
+	}
+
+	for name, value := range s.gauges {
+		result[name] = fmt.Sprint(value)
+	}
+
+	return result
 }

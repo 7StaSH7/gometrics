@@ -13,6 +13,7 @@ type MetricsHandler interface {
 	Update(*gin.Context)
 	Get(*gin.Context)
 	Register(*gin.Engine)
+	Metrics(*gin.Context)
 }
 
 func NewHandler(s metrics.MetricsService) MetricsHandler {
@@ -24,4 +25,5 @@ func NewHandler(s metrics.MetricsService) MetricsHandler {
 func (h *metricsHandler) Register(e *gin.Engine) {
 	e.POST("/update/:type/:name/:value", h.Update)
 	e.GET("/value/:type/:name", h.Get)
+	e.GET("", h.Metrics)
 }
