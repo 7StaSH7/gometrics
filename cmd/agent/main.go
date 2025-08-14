@@ -17,15 +17,15 @@ func main() {
 	a := agent.New(args.a)
 
 	mt := time.NewTicker(time.Duration(args.p) * time.Second)
-	go func() {
-		for range mt.C {
-			a.GetMetric()
-		}
-	}()
+	mr := time.NewTicker(time.Duration(args.r) * time.Second)
 
 	for {
-		a.SendMetrics()
-		time.Sleep(time.Duration(args.r) * time.Second)
+		select {
+		case <-mr.C:
+			a.SendMetrics()
+		case <-mt.C:
+			a.GetMetric()
+		}
 	}
 }
 
