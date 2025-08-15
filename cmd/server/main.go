@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 
 	"github.com/7StaSH7/gometrics/internal/config"
@@ -19,6 +20,7 @@ func main() {
 
 func run() error {
 	sCfg := config.NewServerConfig()
+	flag.Parse()
 
 	server := gin.Default()
 	server.LoadHTMLGlob("templates/*")
