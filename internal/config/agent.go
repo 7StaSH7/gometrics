@@ -14,7 +14,6 @@ func NewAgentConfig() *AgentConfig {
 
 	flag.IntVar(&cfg.ReportInterval, "r", 10, "report interval")
 	flag.IntVar(&cfg.PollInterval, "p", 2, "poll interval")
-	flag.Parse()
 
 	return cfg
 }

@@ -11,10 +11,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-var args struct {
-	a string
-}
-
 func main() {
 	if err := run(); err != nil {
 		fmt.Println("Error starting the server:", err)

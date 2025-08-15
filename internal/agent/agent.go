@@ -122,5 +122,7 @@ func (a *Agent) request(mType, name string, value any) error {
 	}
 	defer resp.Body.Close()
 
+	fmt.Println(resp)
+
 	return nil
 }
