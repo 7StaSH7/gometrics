@@ -6,9 +6,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (h *metricsHandler) Metrics(c *gin.Context) {
+func (h *metricsHandler) GetMany(c *gin.Context) {
 	metrics := h.metricsService.GetMany()
-	
+
 	c.HTML(http.StatusOK, "metrics.tmpl", gin.H{
 		"metrics": metrics,
 	})

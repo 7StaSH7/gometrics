@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"runtime"
 
+	"github.com/7StaSH7/gometrics/internal/config"
 	"github.com/7StaSH7/gometrics/internal/model"
 )
 
@@ -58,9 +59,9 @@ type AgentInterface interface {
 	SendMetrics()
 }
 
-func New() AgentInterface {
+func New(sCfg *config.ServerConfig) AgentInterface {
 	return &Agent{
-		baseURL: "http://localhost:8080",
+		baseURL: fmt.Sprintf("http://%s", sCfg.Address),
 		Client:  &http.Client{},
 	}
 }
@@ -120,6 +121,8 @@ func (a *Agent) request(mType, name string, value any) error {
 		return err
 	}
 	defer resp.Body.Close()
+
+	fmt.Println(resp)
 
 	return nil
 }

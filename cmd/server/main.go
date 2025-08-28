@@ -1,8 +1,10 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 
+	"github.com/7StaSH7/gometrics/internal/config"
 	metricshandler "github.com/7StaSH7/gometrics/internal/handler/metrics"
 	"github.com/7StaSH7/gometrics/internal/repository"
 	metricsservice "github.com/7StaSH7/gometrics/internal/service/metrics"
@@ -17,6 +19,9 @@ func main() {
 }
 
 func run() error {
+	sCfg := config.NewServerConfig()
+	flag.Parse()
+
 	server := gin.Default()
 	server.LoadHTMLGlob("templates/*")
 
@@ -30,5 +35,5 @@ func run() error {
 
 	mHan.Register(server)
 
-	return server.Run(":8080")
+	return server.Run(sCfg.Address)
 }

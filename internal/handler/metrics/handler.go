@@ -11,9 +11,9 @@ type metricsHandler struct {
 
 type MetricsHandler interface {
 	Update(*gin.Context)
-	Get(*gin.Context)
+	GetOne(*gin.Context)
 	Register(*gin.Engine)
-	Metrics(*gin.Context)
+	GetMany(*gin.Context)
 }
 
 func NewHandler(s metrics.MetricsService) MetricsHandler {
@@ -24,6 +24,6 @@ func NewHandler(s metrics.MetricsService) MetricsHandler {
 
 func (h *metricsHandler) Register(e *gin.Engine) {
 	e.POST("/update/:type/:name/:value", h.Update)
-	e.GET("/value/:type/:name", h.Get)
-	e.GET("", h.Metrics)
+	e.GET("/value/:type/:name", h.GetOne)
+	e.GET("", h.GetMany)
 }
