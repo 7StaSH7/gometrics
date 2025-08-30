@@ -59,9 +59,9 @@ type AgentInterface interface {
 	SendMetrics()
 }
 
-func New(sCfg *config.ServerConfig) AgentInterface {
+func New(aCfg *config.AgentConfig) AgentInterface {
 	return &Agent{
-		baseURL: fmt.Sprintf("http://%s", sCfg.Address),
+		baseURL: fmt.Sprintf("http://%s", aCfg.Address),
 		Client:  &http.Client{},
 	}
 }
