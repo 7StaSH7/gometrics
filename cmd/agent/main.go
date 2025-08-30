@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"os"
 	"os/signal"
 	"syscall"
@@ -13,11 +12,9 @@ import (
 )
 
 func main() {
-	sCfg := config.NewServerConfig()
 	aCfg := config.NewAgentConfig()
-	flag.Parse()
 
-	a := agent.New(sCfg)
+	a := agent.New(aCfg)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
