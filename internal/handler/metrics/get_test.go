@@ -56,7 +56,7 @@ func TestGet(t *testing.T) {
 			},
 			expectedStatus: http.StatusOK,
 			expectedHeader: "text/plain; charset=utf-8",
-			expectedBody:   "23.500000", // Handler formats with %f (6 decimal places)
+			expectedBody:   "23.5",
 		},
 		{
 			name: "successful counter retrieval",
@@ -76,20 +76,20 @@ func TestGet(t *testing.T) {
 			},
 			expectedStatus: http.StatusOK,
 			expectedHeader: "text/plain; charset=utf-8",
-			expectedBody:   "-15.300000", // Handler formats with %f (6 decimal places)
+			expectedBody:   "-15.3",
 		},
 		{
-			name: "gauge with zero value returns 200", // Now 0 is a valid value
+			name: "gauge with zero value returns 200",
 			url:  "/value/gauge/pressure",
 			setupMock: func(m *MockMetricsService) {
 				m.On("GetGauge", "pressure").Return(float64(0), nil)
 			},
 			expectedStatus: http.StatusOK,
 			expectedHeader: "text/plain; charset=utf-8",
-			expectedBody:   "0.000000",
+			expectedBody:   "0",
 		},
 		{
-			name: "counter with zero value returns 200", // Now 0 is a valid value
+			name: "counter with zero value returns 200",
 			url:  "/value/counter/errors",
 			setupMock: func(m *MockMetricsService) {
 				m.On("GetCounter", "errors").Return(int64(0), nil)
@@ -106,7 +106,7 @@ func TestGet(t *testing.T) {
 			},
 			expectedStatus: http.StatusOK,
 			expectedHeader: "text/plain; charset=utf-8",
-			expectedBody:   "999999.999999", // Handler formats with %f (6 decimal places)
+			expectedBody:   "999999.999999",
 		},
 		{
 			name: "successful counter retrieval with large value",
@@ -134,7 +134,7 @@ func TestGet(t *testing.T) {
 			},
 			expectedStatus: http.StatusOK,
 			expectedHeader: "text/plain; charset=utf-8",
-			expectedBody:   "12300000000.000000", // Handler formats with %f (6 decimal places)
+			expectedBody:   "1.23e+10",
 		},
 		{
 			name: "metric name with special characters",
@@ -144,7 +144,7 @@ func TestGet(t *testing.T) {
 			},
 			expectedStatus: http.StatusOK,
 			expectedHeader: "text/plain; charset=utf-8",
-			expectedBody:   "75.500000", // Handler formats with %f (6 decimal places)
+			expectedBody:   "75.5",
 		},
 		{
 			name: "metric name with numbers",
@@ -164,7 +164,7 @@ func TestGet(t *testing.T) {
 			},
 			expectedStatus: http.StatusOK,
 			expectedHeader: "text/plain; charset=utf-8",
-			expectedBody:   "0.001000", // Handler formats with %f (6 decimal places)
+			expectedBody:   "0.001",
 		},
 		{
 			name: "gauge with very small negative value",
@@ -174,7 +174,7 @@ func TestGet(t *testing.T) {
 			},
 			expectedStatus: http.StatusOK,
 			expectedHeader: "text/plain; charset=utf-8",
-			expectedBody:   "-0.001000", // Handler formats with %f (6 decimal places)
+			expectedBody:   "-0.001",
 		},
 		{
 			name: "counter with value 1",

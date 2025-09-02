@@ -3,7 +3,6 @@ package metrics
 import (
 	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/7StaSH7/gometrics/internal/model"
 	"github.com/gin-gonic/gin"
@@ -41,7 +40,7 @@ func (h *metricsHandler) GetOne(c *gin.Context) {
 				return
 			}
 
-			c.String(http.StatusOK, fmt.Sprintf("%d", value))
+			c.String(http.StatusOK, fmt.Sprintf("%v", value))
 			return
 		}
 	case model.Gauge:
@@ -52,7 +51,7 @@ func (h *metricsHandler) GetOne(c *gin.Context) {
 				return
 			}
 
-			c.String(http.StatusOK, strconv.FormatFloat(value, 'f', -1, 64))
+			c.String(http.StatusOK, fmt.Sprintf("%v", value))
 			return
 		}
 	}
