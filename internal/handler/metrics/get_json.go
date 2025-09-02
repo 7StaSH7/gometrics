@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func (h *metricsHandler) GetJson(c *gin.Context) {
+func (h *metricsHandler) GetJSON(c *gin.Context) {
 	var body model.Metrics
 
 	dec := json.NewDecoder(c.Request.Body)
@@ -33,8 +33,8 @@ func (h *metricsHandler) GetJson(c *gin.Context) {
 	switch body.MType {
 	case model.Counter:
 		{
-			value := h.metricsService.GetCounter(body.ID)
-			if value == 0 {
+			value, err := h.metricsService.GetCounter(body.ID)
+			if err != nil {
 				c.JSON(http.StatusNotFound, gin.H{"error": "metric not found"})
 				return
 			}
@@ -43,8 +43,8 @@ func (h *metricsHandler) GetJson(c *gin.Context) {
 		}
 	case model.Gauge:
 		{
-			value := h.metricsService.GetGauge(body.ID)
-			if value == 0 {
+			value, err := h.metricsService.GetGauge(body.ID)
+			if err != nil {
 				c.JSON(http.StatusNotFound, gin.H{"error": "metric not found"})
 				return
 			}

@@ -11,8 +11,8 @@ type memStorageRepository struct {
 type MemStorageRepository interface {
 	Replace(name string, value float64)
 	Add(name string, value int64)
-	ReadCounter(name string) int64
-	ReadGauge(name string) float64
+	ReadCounter(name string) (int64, error)
+	ReadGauge(name string) (float64, error)
 	ReadMany() map[string]string
 }
 
@@ -30,11 +30,11 @@ func (s *memStorageRepository) Add(name string, value int64) {
 	s.storage.Add(name, value)
 }
 
-func (s *memStorageRepository) ReadCounter(name string) int64 {
+func (s *memStorageRepository) ReadCounter(name string) (int64, error) {
 	return s.storage.ReadCounter(name)
 }
 
-func (s *memStorageRepository) ReadGauge(name string) float64 {
+func (s *memStorageRepository) ReadGauge(name string) (float64, error) {
 	return s.storage.ReadGauge(name)
 }
 

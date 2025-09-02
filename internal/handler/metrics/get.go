@@ -34,8 +34,8 @@ func (h *metricsHandler) GetOne(c *gin.Context) {
 	switch input.MType {
 	case model.Counter:
 		{
-			value := h.metricsService.GetCounter(input.Name)
-			if value == 0 {
+			value, err := h.metricsService.GetCounter(input.Name)
+			if err != nil {
 				c.AbortWithStatus(http.StatusNotFound)
 				return
 			}
@@ -45,13 +45,13 @@ func (h *metricsHandler) GetOne(c *gin.Context) {
 		}
 	case model.Gauge:
 		{
-			value := h.metricsService.GetGauge(input.Name)
-			if value == 0 {
+			value, err := h.metricsService.GetGauge(input.Name)
+			if err != nil {
 				c.AbortWithStatus(http.StatusNotFound)
 				return
 			}
 
-			c.String(http.StatusOK, fmt.Sprintf("%.3f", value))
+			c.String(http.StatusOK, fmt.Sprintf("%f", value))
 			return
 		}
 	}

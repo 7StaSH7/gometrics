@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func (h *metricsHandler) UpdateJson(c *gin.Context) {
+func (h *metricsHandler) UpdateJSON(c *gin.Context) {
 	var body model.Metrics
 	if err := c.ShouldBindJSON(&body); err != nil {
 		logger.Log.Debug("cannot decode request JSON body", zap.Error(err))

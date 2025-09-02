@@ -15,8 +15,8 @@ type MemStorage struct {
 type MemStorageInterface interface {
 	Replace(name string, value float64)
 	Add(name string, value int64)
-	ReadCounter(name string) int64
-	ReadGauge(name string) float64
+	ReadCounter(name string) (int64, error)
+	ReadGauge(name string) (float64, error)
 	ReadMany() map[string]string
 }
 
@@ -37,12 +37,20 @@ func (s *MemStorage) Add(name string, value int64) {
 	s.counter[name] += value
 }
 
-func (s *MemStorage) ReadCounter(name string) int64 {
-	return s.counter[name]
+func (s *MemStorage) ReadCounter(name string) (int64, error) {
+	value, exists := s.counter[name]
+	if !exists {
+		return 0, fmt.Errorf("counter metric '%s' not found", name)
+	}
+	return value, nil
 }
 
-func (s *MemStorage) ReadGauge(name string) float64 {
-	return s.gauges[name]
+func (s *MemStorage) ReadGauge(name string) (float64, error) {
+	value, exists := s.gauges[name]
+	if !exists {
+		return 0, fmt.Errorf("gauge metric '%s' not found", name)
+	}
+	return value, nil
 }
 
 func (s *MemStorage) ReadMany() map[string]string {

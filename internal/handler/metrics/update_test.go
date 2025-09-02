@@ -6,7 +6,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/7StaSH7/gometrics/internal/model"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -26,12 +25,6 @@ func (m *MockMetricsService) UpdateGauge(name string, value float64) error {
 	args := m.Called(name, value)
 
 	return args.Error(0)
-}
-
-func (m *MockMetricsService) GetMany() map[string]string {
-	args := m.Called()
-
-	return args.Get(0).(map[string]string)
 }
 
 func setupUpdateTestRouter(service *MockMetricsService) *gin.Engine {
@@ -59,7 +52,7 @@ func TestUpdate(t *testing.T) {
 			name: "successful gauge update",
 			url:  "/update/gauge/temperature/23.5",
 			setupMock: func(m *MockMetricsService) {
-				m.On("Update", model.Gauge, "temperature", 23.5).Return(nil)
+				m.On("UpdateGauge", "temperature", 23.5).Return(nil)
 			},
 			expectedStatus: http.StatusOK,
 			expectedHeader: "text/plain; charset=utf-8",
@@ -68,7 +61,7 @@ func TestUpdate(t *testing.T) {
 			name: "successful counter update",
 			url:  "/update/counter/requests/100",
 			setupMock: func(m *MockMetricsService) {
-				m.On("Update", model.Counter, "requests", int64(100)).Return(nil)
+				m.On("UpdateCounter", "requests", int64(100)).Return(nil)
 			},
 			expectedStatus: http.StatusOK,
 			expectedHeader: "text/plain; charset=utf-8",
@@ -77,7 +70,7 @@ func TestUpdate(t *testing.T) {
 			name: "successful gauge update with negative value",
 			url:  "/update/gauge/temperature/-15.3",
 			setupMock: func(m *MockMetricsService) {
-				m.On("Update", model.Gauge, "temperature", -15.3).Return(nil)
+				m.On("UpdateGauge", "temperature", -15.3).Return(nil)
 			},
 			expectedStatus: http.StatusOK,
 			expectedHeader: "text/plain; charset=utf-8",
@@ -86,7 +79,7 @@ func TestUpdate(t *testing.T) {
 			name: "successful gauge update with zero value",
 			url:  "/update/gauge/pressure/0.0",
 			setupMock: func(m *MockMetricsService) {
-				m.On("Update", model.Gauge, "pressure", 0.0).Return(nil)
+				m.On("UpdateGauge", "pressure", 0.0).Return(nil)
 			},
 			expectedStatus: http.StatusOK,
 			expectedHeader: "text/plain; charset=utf-8",
@@ -95,7 +88,7 @@ func TestUpdate(t *testing.T) {
 			name: "successful counter update with zero value",
 			url:  "/update/counter/errors/0",
 			setupMock: func(m *MockMetricsService) {
-				m.On("Update", model.Counter, "errors", int64(0)).Return(nil)
+				m.On("UpdateCounter", "errors", int64(0)).Return(nil)
 			},
 			expectedStatus: http.StatusOK,
 			expectedHeader: "text/plain; charset=utf-8",
@@ -139,7 +132,7 @@ func TestUpdate(t *testing.T) {
 			name: "service error for gauge update",
 			url:  "/update/gauge/temperature/25.0",
 			setupMock: func(m *MockMetricsService) {
-				m.On("Update", model.Gauge, "temperature", 25.0).Return(errors.New("service error"))
+				m.On("UpdateGauge", "temperature", 25.0).Return(errors.New("service error"))
 			},
 			expectedStatus: http.StatusBadRequest,
 			expectedHeader: "text/plain; charset=utf-8",
@@ -148,7 +141,7 @@ func TestUpdate(t *testing.T) {
 			name: "service error for counter update",
 			url:  "/update/counter/requests/50",
 			setupMock: func(m *MockMetricsService) {
-				m.On("Update", model.Counter, "requests", int64(50)).Return(errors.New("service error"))
+				m.On("UpdateCounter", "requests", int64(50)).Return(errors.New("service error"))
 			},
 			expectedStatus: http.StatusBadRequest,
 			expectedHeader: "text/plain; charset=utf-8",
@@ -157,7 +150,7 @@ func TestUpdate(t *testing.T) {
 			name: "large gauge value",
 			url:  "/update/gauge/temperature/999999.999999",
 			setupMock: func(m *MockMetricsService) {
-				m.On("Update", model.Gauge, "temperature", 999999.999999).Return(nil)
+				m.On("UpdateGauge", "temperature", 999999.999999).Return(nil)
 			},
 			expectedStatus: http.StatusOK,
 			expectedHeader: "text/plain; charset=utf-8",
@@ -166,7 +159,7 @@ func TestUpdate(t *testing.T) {
 			name: "large counter value",
 			url:  "/update/counter/requests/9223372036854775807",
 			setupMock: func(m *MockMetricsService) {
-				m.On("Update", model.Counter, "requests", int64(9223372036854775807)).Return(nil)
+				m.On("UpdateCounter", "requests", int64(9223372036854775807)).Return(nil)
 			},
 			expectedStatus: http.StatusOK,
 			expectedHeader: "text/plain; charset=utf-8",
