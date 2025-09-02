@@ -39,7 +39,7 @@ func (h *metricsHandler) Update(c *gin.Context) {
 			return
 		}
 
-		if err := h.metricsService.Update(input.MType, input.Name, parsedValue); err != nil {
+		if err := h.metricsService.UpdateGauge(input.Name, parsedValue); err != nil {
 			c.AbortWithStatus(http.StatusBadRequest)
 			return
 		}
@@ -52,7 +52,7 @@ func (h *metricsHandler) Update(c *gin.Context) {
 			return
 		}
 
-		if err := h.metricsService.Update(input.MType, input.Name, parsedValue); err != nil {
+		if err := h.metricsService.UpdateCounter(input.Name, parsedValue); err != nil {
 			c.AbortWithStatus(http.StatusBadRequest)
 			return
 		}

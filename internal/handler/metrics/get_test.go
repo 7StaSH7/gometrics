@@ -23,10 +23,16 @@ func setupGetTestRouter(service *MockMetricsService) *gin.Engine {
 	return router
 }
 
-func (m *MockMetricsService) GetOne(mType, name string) string {
-	args := m.Called(mType, name)
+func (m *MockMetricsService) GetCounter(name string) int64 {
+	args := m.Called(name)
 
-	return args.String(0)
+	return int64(args.Int(0))
+}
+
+func (m *MockMetricsService) GetGauge(name string) float64 {
+	args := m.Called(name)
+
+	return float64(args.Int(0))
 }
 
 func TestGet(t *testing.T) {

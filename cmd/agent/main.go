@@ -15,6 +15,7 @@ func main() {
 	aCfg := config.NewAgentConfig()
 
 	a := agent.New(aCfg)
+	defer a.Close()
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()

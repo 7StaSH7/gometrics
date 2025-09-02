@@ -16,8 +16,14 @@ type MockMetricsService struct {
 	mock.Mock
 }
 
-func (m *MockMetricsService) Update(mType, name string, value any) error {
-	args := m.Called(mType, name, value)
+func (m *MockMetricsService) UpdateCounter(name string, value int64) error {
+	args := m.Called(name, value)
+
+	return args.Error(0)
+}
+
+func (m *MockMetricsService) UpdateGauge(name string, value float64) error {
+	args := m.Called(name, value)
 
 	return args.Error(0)
 }

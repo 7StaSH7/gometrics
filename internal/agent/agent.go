@@ -1,14 +1,15 @@
 package agent
 
 import (
+	"errors"
 	"fmt"
 	"math/rand/v2"
-	"net/http"
 	"reflect"
 	"runtime"
 
 	"github.com/7StaSH7/gometrics/internal/config"
 	"github.com/7StaSH7/gometrics/internal/model"
+	"resty.dev/v3"
 )
 
 type Gauge float64
@@ -50,19 +51,18 @@ var m Metric
 var ms runtime.MemStats
 
 type Agent struct {
-	baseURL string
-	*http.Client
+	*resty.Client
 }
 
 type AgentInterface interface {
 	GetMetric()
 	SendMetrics()
+	Close() error
 }
 
 func New(aCfg *config.AgentConfig) AgentInterface {
 	return &Agent{
-		baseURL: fmt.Sprintf("http://%s", aCfg.Address),
-		Client:  &http.Client{},
+		Client: resty.New().SetBaseURL(fmt.Sprintf("http://%s", aCfg.Address)),
 	}
 }
 
@@ -72,12 +72,16 @@ func (a *Agent) SendMetrics() {
 
 	for i := 0; i < v.NumField(); i++ {
 		f := v.Field(i)
-
+		fmt.Println(v.Type().Field(i).Name, f.Kind())
 		switch f.Kind() {
 		case reflect.Float64:
-			a.request(model.Gauge, v.Type().Field(i).Name, f)
+			if err := a.request(model.Gauge, v.Type().Field(i).Name, f.Float()); err != nil {
+				panic(err)
+			}
 		case reflect.Int64:
-			a.request(model.Counter, v.Type().Field(i).Name, f)
+			if err := a.request(model.Counter, v.Type().Field(i).Name, f.Int()); err != nil {
+				panic(err)
+			}
 		}
 	}
 }
@@ -115,14 +119,40 @@ func (a *Agent) GetMetric() {
 	m.PollCount++
 }
 
+func (a *Agent) Close() error {
+	return a.Client.Close()
+}
+
 func (a *Agent) request(mType, name string, value any) error {
-	resp, err := a.Client.Post(fmt.Sprintf(`%s/update/%s/%s/%v`, a.baseURL, mType, name, value), "text/plain", nil)
+	body := model.Metrics{ID: name}
+	switch mType {
+	case model.Counter:
+		{
+			body.MType = model.Counter
+			v, ok := value.(int64)
+			if !ok {
+				return errors.New("int64 not ok")
+			}
+			body.Delta = &v
+		}
+	case model.Gauge:
+		{
+			body.MType = model.Gauge
+			v, ok := value.(float64)
+			if !ok {
+				return errors.New("float64 not ok")
+			}
+			body.Value = &v
+		}
+	}
+
+	resp, err := a.Client.R().SetContentType("application/json").SetBody(body).SetCloseConnection(true).Post("/update/")
 	if err != nil {
+		fmt.Println(err)
+
 		return err
 	}
 	defer resp.Body.Close()
-
-	fmt.Println(resp)
 
 	return nil
 }

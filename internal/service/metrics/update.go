@@ -1,16 +1,13 @@
 package metrics
 
-import (
-	"github.com/7StaSH7/gometrics/internal/model"
-)
+func (s *metricsService) UpdateCounter(name string, value int64) error {
+	s.storageRep.Add(name, value)
 
-func (s *metricsService) Update(mType, name string, value any) error {
-	switch mType {
-	case model.Gauge:
-		s.storageRep.Replace(name, value.(float64))
-	case model.Counter:
-		s.storageRep.Add(name, value.(int64))
-	}
+	return nil
+}
+
+func (s *metricsService) UpdateGauge(name string, value float64) error {
+	s.storageRep.Replace(name, value)
 
 	return nil
 }
