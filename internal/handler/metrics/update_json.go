@@ -13,19 +13,19 @@ func (h *metricsHandler) UpdateJson(c *gin.Context) {
 	var body model.Metrics
 	if err := c.ShouldBindJSON(&body); err != nil {
 		logger.Log.Debug("cannot decode request JSON body", zap.Error(err))
-		c.AbortWithError(http.StatusBadRequest, err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	logger.Log.Debug("decoded JSON body", zap.Any("body", &body))
+	logger.Log.Debug("decoded JSON body", zap.Any("body", body))
 
 	if body.MType != model.Counter && body.MType != model.Gauge {
-		c.AbortWithStatus(http.StatusBadRequest)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad type"})
 		return
 	}
 
 	if body.ID == "" {
-		c.AbortWithStatus(http.StatusNotFound)
+		c.JSON(http.StatusNotFound, gin.H{"error": "bad id"})
 		return
 	}
 
@@ -34,11 +34,11 @@ func (h *metricsHandler) UpdateJson(c *gin.Context) {
 		{
 			if body.Delta == nil {
 				logger.Log.Debug("'Delta' field is missing")
-				c.AbortWithStatus(http.StatusBadRequest)
+				c.JSON(http.StatusBadRequest, gin.H{"error": "'Delta' is missing"})
 				return
 			}
 			if err := h.metricsService.UpdateCounter(body.ID, *body.Delta); err != nil {
-				c.AbortWithStatus(http.StatusBadRequest)
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 				return
 			}
 		}
@@ -46,16 +46,15 @@ func (h *metricsHandler) UpdateJson(c *gin.Context) {
 		{
 			if body.Value == nil {
 				logger.Log.Debug("'Value' field is missing")
-				c.AbortWithStatus(http.StatusBadRequest)
+				c.JSON(http.StatusBadRequest, gin.H{"error": "bad id"})
 				return
 			}
 			if err := h.metricsService.UpdateGauge(body.ID, *body.Value); err != nil {
-				c.AbortWithStatus(http.StatusBadRequest)
+				c.JSON(http.StatusBadRequest, gin.H{"error": "'Value' is missing"})
 				return
 			}
 		}
 	}
 
-	c.Header("Content-Type", "application/json")
-	c.Status(http.StatusOK)
+	c.JSON(http.StatusOK, gin.H{})
 }

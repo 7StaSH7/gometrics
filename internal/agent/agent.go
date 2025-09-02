@@ -3,6 +3,7 @@ package agent
 import (
 	"errors"
 	"fmt"
+	"io"
 	"math/rand/v2"
 	"reflect"
 	"runtime"
@@ -72,7 +73,6 @@ func (a *Agent) SendMetrics() {
 
 	for i := 0; i < v.NumField(); i++ {
 		f := v.Field(i)
-		fmt.Println(v.Type().Field(i).Name, f.Kind())
 		switch f.Kind() {
 		case reflect.Float64:
 			if err := a.request(model.Gauge, v.Type().Field(i).Name, f.Float()); err != nil {
@@ -146,13 +146,17 @@ func (a *Agent) request(mType, name string, value any) error {
 		}
 	}
 
-	resp, err := a.Client.R().SetContentType("application/json").SetBody(body).SetCloseConnection(true).Post("/update/")
+	resp, err := a.Client.R().SetDebug(true).SetContentType("application/json").SetBody(body).SetCloseConnection(true).Post("/update/")
 	if err != nil {
-		fmt.Println(err)
-
+		fmt.Println("ERROR", err)
 		return err
 	}
 	defer resp.Body.Close()
+
+	_, err = io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

@@ -4,28 +4,29 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/7StaSH7/gometrics/internal/logger"
 	"github.com/7StaSH7/gometrics/internal/model"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 func (h *metricsHandler) GetJson(c *gin.Context) {
-	c.Header("Content-Type", "application/json")
-
 	var body model.Metrics
 
 	dec := json.NewDecoder(c.Request.Body)
 	if err := dec.Decode(&body); err != nil {
-		c.AbortWithStatus(http.StatusBadRequest)
+		logger.Log.Debug("cannot decode request JSON body", zap.Error(err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	if body.ID == "" {
-		c.AbortWithStatus(http.StatusNotFound)
+		c.JSON(http.StatusNotFound, gin.H{"error": "bad id"})
 		return
 	}
 
 	if body.MType != model.Counter && body.MType != model.Gauge {
-		c.AbortWithStatus(http.StatusBadRequest)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad type"})
 		return
 	}
 
@@ -34,7 +35,7 @@ func (h *metricsHandler) GetJson(c *gin.Context) {
 		{
 			value := h.metricsService.GetCounter(body.ID)
 			if value == 0 {
-				c.AbortWithStatus(http.StatusNotFound)
+				c.JSON(http.StatusNotFound, gin.H{"error": "metric not found"})
 				return
 			}
 
@@ -44,7 +45,7 @@ func (h *metricsHandler) GetJson(c *gin.Context) {
 		{
 			value := h.metricsService.GetGauge(body.ID)
 			if value == 0 {
-				c.AbortWithStatus(http.StatusNotFound)
+				c.JSON(http.StatusNotFound, gin.H{"error": "metric not found"})
 				return
 			}
 
