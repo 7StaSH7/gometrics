@@ -28,6 +28,8 @@ func run() error {
 
 	logger.Initialize(sCfg.LogLevel)
 	server.Use(middleware.RequestLogger)
+	
+	server.Use(middleware.GzipMiddleware)
 	server.Use(gin.Recovery())
 
 	stor := storage.NewStorage()
