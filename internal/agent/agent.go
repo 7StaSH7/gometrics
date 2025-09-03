@@ -1,7 +1,11 @@
 package agent
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"math/rand/v2"
 	"net/http"
 	"reflect"
@@ -50,19 +54,20 @@ var m Metric
 var ms runtime.MemStats
 
 type Agent struct {
+	client  *http.Client
 	baseURL string
-	*http.Client
 }
 
 type AgentInterface interface {
 	GetMetric()
 	SendMetrics()
+	Close() error
 }
 
 func New(aCfg *config.AgentConfig) AgentInterface {
 	return &Agent{
+		client:  &http.Client{},
 		baseURL: fmt.Sprintf("http://%s", aCfg.Address),
-		Client:  &http.Client{},
 	}
 }
 
@@ -72,12 +77,17 @@ func (a *Agent) SendMetrics() {
 
 	for i := 0; i < v.NumField(); i++ {
 		f := v.Field(i)
-
 		switch f.Kind() {
 		case reflect.Float64:
-			a.request(model.Gauge, v.Type().Field(i).Name, f)
+			if err := a.request(model.Gauge, v.Type().Field(i).Name, f.Float()); err != nil {
+				fmt.Printf("Error sending gauge metric %s: %v\n", v.Type().Field(i).Name, err)
+			}
+
 		case reflect.Int64:
-			a.request(model.Counter, v.Type().Field(i).Name, f)
+			if err := a.request(model.Counter, v.Type().Field(i).Name, f.Int()); err != nil {
+				fmt.Printf("Error sending counter metric %s: %v\n", v.Type().Field(i).Name, err)
+			}
+
 		}
 	}
 }
@@ -115,14 +125,56 @@ func (a *Agent) GetMetric() {
 	m.PollCount++
 }
 
+func (a *Agent) Close() error {
+	return nil
+}
+
 func (a *Agent) request(mType, name string, value any) error {
-	resp, err := a.Client.Post(fmt.Sprintf(`%s/update/%s/%s/%v`, a.baseURL, mType, name, value), "text/plain", nil)
+	body := model.Metrics{ID: name}
+	switch mType {
+	case model.Counter:
+		{
+			body.MType = model.Counter
+			v, ok := value.(int64)
+			if !ok {
+				return errors.New("int64 not ok")
+			}
+			body.Delta = &v
+		}
+	case model.Gauge:
+		{
+			body.MType = model.Gauge
+			v, ok := value.(float64)
+			if !ok {
+				return errors.New("float64 not ok")
+			}
+			body.Value = &v
+		}
+	}
+
+	jsonData, err := json.Marshal(body)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to marshal JSON: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/update/", a.baseURL)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	fmt.Println(resp)
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
 
 	return nil
 }

@@ -3,7 +3,8 @@ package storage
 import (
 	"fmt"
 
-	"github.com/7StaSH7/gometrics/internal/model"
+	"github.com/7StaSH7/gometrics/internal/logger"
+	"go.uber.org/zap"
 )
 
 type MemStorage struct {
@@ -14,7 +15,8 @@ type MemStorage struct {
 type MemStorageInterface interface {
 	Replace(name string, value float64)
 	Add(name string, value int64)
-	ReadOne(mType, name string) string
+	ReadCounter(name string) (int64, error)
+	ReadGauge(name string) (float64, error)
 	ReadMany() map[string]string
 }
 
@@ -26,32 +28,29 @@ func NewStorage() MemStorageInterface {
 }
 
 func (s *MemStorage) Replace(name string, value float64) {
+	logger.Log.Debug("replace value", zap.String("name", name), zap.Float64("value", value))
 	s.gauges[name] = value
 }
 
 func (s *MemStorage) Add(name string, value int64) {
+	logger.Log.Debug("add value", zap.String("name", name), zap.Int64("value", value))
 	s.counter[name] += value
 }
 
-func (s *MemStorage) ReadOne(mType, name string) string {
-	switch mType {
-	case model.Counter:
-		v, ok := s.counter[name]
-		if !ok {
-			return ""
-		}
-
-		return fmt.Sprint(v)
-	case model.Gauge:
-		v, ok := s.gauges[name]
-		if !ok {
-			return ""
-		}
-
-		return fmt.Sprint(v)
+func (s *MemStorage) ReadCounter(name string) (int64, error) {
+	value, exists := s.counter[name]
+	if !exists {
+		return 0, fmt.Errorf("counter metric '%s' not found", name)
 	}
+	return value, nil
+}
 
-	return ""
+func (s *MemStorage) ReadGauge(name string) (float64, error) {
+	value, exists := s.gauges[name]
+	if !exists {
+		return 0, fmt.Errorf("gauge metric '%s' not found", name)
+	}
+	return value, nil
 }
 
 func (s *MemStorage) ReadMany() map[string]string {

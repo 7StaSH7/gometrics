@@ -8,12 +8,14 @@ import (
 )
 
 type ServerConfig struct {
-	Address string `env:"ADDRESS"`
+	LogLevel string `env:"LOG_LEVEL"`
+	Address  string `env:"ADDRESS"`
 }
 
 func NewServerConfig() *ServerConfig {
 	cfg := &ServerConfig{}
 
+	flag.StringVar(&cfg.LogLevel, "l", "debug", "log level")
 	flag.StringVar(&cfg.Address, "a", "localhost:8080", "address to listen on")
 	flag.Parse()
 

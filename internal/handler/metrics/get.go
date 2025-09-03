@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/7StaSH7/gometrics/internal/model"
@@ -30,11 +31,28 @@ func (h *metricsHandler) GetOne(c *gin.Context) {
 		return
 	}
 
-	value := h.metricsService.GetOne(input.MType, input.Name)
-	if value == "" {
-		c.AbortWithStatus(http.StatusNotFound)
-		return
-	}
+	switch input.MType {
+	case model.Counter:
+		{
+			value, err := h.metricsService.GetCounter(input.Name)
+			if err != nil {
+				c.AbortWithStatus(http.StatusNotFound)
+				return
+			}
 
-	c.String(http.StatusOK, value)
+			c.String(http.StatusOK, fmt.Sprintf("%v", value))
+			return
+		}
+	case model.Gauge:
+		{
+			value, err := h.metricsService.GetGauge(input.Name)
+			if err != nil {
+				c.AbortWithStatus(http.StatusNotFound)
+				return
+			}
+
+			c.String(http.StatusOK, fmt.Sprintf("%v", value))
+			return
+		}
+	}
 }

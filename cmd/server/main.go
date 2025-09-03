@@ -26,8 +26,8 @@ func run() error {
 
 	server.LoadHTMLGlob("templates/*")
 
-	logger.Initialize("Info")
-	server.Use(middleware.RequestLogger())
+	logger.Initialize(sCfg.LogLevel)
+	server.Use(middleware.RequestLogger)
 	server.Use(gin.Recovery())
 
 	stor := storage.NewStorage()
