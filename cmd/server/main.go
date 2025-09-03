@@ -6,6 +6,7 @@ import (
 	"github.com/7StaSH7/gometrics/internal/config"
 	metricshandler "github.com/7StaSH7/gometrics/internal/handler/metrics"
 	"github.com/7StaSH7/gometrics/internal/logger"
+	"github.com/7StaSH7/gometrics/internal/middleware"
 	"github.com/7StaSH7/gometrics/internal/repository"
 	metricsservice "github.com/7StaSH7/gometrics/internal/service/metrics"
 	"github.com/7StaSH7/gometrics/internal/storage"
@@ -21,13 +22,13 @@ func main() {
 func run() error {
 	sCfg := config.NewServerConfig()
 
-	server := gin.Default()
+	server := gin.New()
 
 	server.LoadHTMLGlob("templates/*")
 
 	logger.Initialize(sCfg.LogLevel)
-	// server.Use(middleware.RequestLogger)
-	// server.Use(gin.Recovery())
+	server.Use(middleware.RequestLogger)
+	server.Use(gin.Recovery())
 
 	stor := storage.NewStorage()
 

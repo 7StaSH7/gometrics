@@ -20,8 +20,8 @@ func (w bodyLogWriter) Write(b []byte) (int, error) {
 }
 
 func RequestLogger(c *gin.Context) {
-	blw := &bodyLogWriter{body: bytes.NewBufferString(""), ResponseWriter: c.Writer}
-	c.Writer = blw
+	// blw := &bodyLogWriter{body: bytes.NewBufferString(""), ResponseWriter: c.Writer}
+	// c.Writer = blw
 
 	start := time.Now()
 	c.Next()
@@ -30,11 +30,11 @@ func RequestLogger(c *gin.Context) {
 		zap.String("uri", c.Request.URL.Path),
 		zap.String("method", c.Request.Method),
 		zap.Duration("duration", duration),
-		zap.Any("resp", gin.H{
-			"status": c.Writer.Status(),
-			"size":   c.Writer.Size(),
-			"body":   blw.body.String(),
-		},
-		),
+		// zap.Any("resp", gin.H{
+		// 	"status": c.Writer.Status(),
+		// 	"size":   c.Writer.Size(),
+		// 	"body":   blw.body.String(),
+		// },
+		// ),
 	)
 }

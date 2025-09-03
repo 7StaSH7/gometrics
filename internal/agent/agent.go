@@ -1,16 +1,18 @@
 package agent
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"math/rand/v2"
+	"net/http"
 	"reflect"
 	"runtime"
 
 	"github.com/7StaSH7/gometrics/internal/config"
 	"github.com/7StaSH7/gometrics/internal/model"
-	"resty.dev/v3"
 )
 
 type Gauge float64
@@ -52,7 +54,8 @@ var m Metric
 var ms runtime.MemStats
 
 type Agent struct {
-	*resty.Client
+	client  *http.Client
+	baseURL string
 }
 
 type AgentInterface interface {
@@ -63,7 +66,8 @@ type AgentInterface interface {
 
 func New(aCfg *config.AgentConfig) AgentInterface {
 	return &Agent{
-		Client: resty.New().SetBaseURL(fmt.Sprintf("http://%s", aCfg.Address)),
+		client:  &http.Client{},
+		baseURL: fmt.Sprintf("http://%s", aCfg.Address),
 	}
 }
 
@@ -76,12 +80,14 @@ func (a *Agent) SendMetrics() {
 		switch f.Kind() {
 		case reflect.Float64:
 			if err := a.request(model.Gauge, v.Type().Field(i).Name, f.Float()); err != nil {
-				panic(err)
+				fmt.Printf("Error sending gauge metric %s: %v\n", v.Type().Field(i).Name, err)
 			}
+
 		case reflect.Int64:
 			if err := a.request(model.Counter, v.Type().Field(i).Name, f.Int()); err != nil {
-				panic(err)
+				fmt.Printf("Error sending counter metric %s: %v\n", v.Type().Field(i).Name, err)
 			}
+
 		}
 	}
 }
@@ -120,7 +126,7 @@ func (a *Agent) GetMetric() {
 }
 
 func (a *Agent) Close() error {
-	return a.Client.Close()
+	return nil
 }
 
 func (a *Agent) request(mType, name string, value any) error {
@@ -146,16 +152,28 @@ func (a *Agent) request(mType, name string, value any) error {
 		}
 	}
 
-	resp, err := a.Client.R().SetDebug(true).SetContentType("application/json").SetBody(body).SetCloseConnection(true).Post("/update/")
+	jsonData, err := json.Marshal(body)
 	if err != nil {
-		fmt.Println("ERROR", err)
-		return err
+		return fmt.Errorf("failed to marshal JSON: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/update/", a.baseURL)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	_, err = io.ReadAll(resp.Body)
-	if err != nil {
-		return err
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	return nil

@@ -46,11 +46,11 @@ func (h *metricsHandler) UpdateJSON(c *gin.Context) {
 		{
 			if body.Value == nil {
 				logger.Log.Debug("'Value' field is missing")
-				c.JSON(http.StatusBadRequest, gin.H{"error": "bad id"})
+				c.JSON(http.StatusBadRequest, gin.H{"error": "'Value' is missing"})
 				return
 			}
 			if err := h.metricsService.UpdateGauge(body.ID, *body.Value); err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "'Value' is missing"})
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 				return
 			}
 		}
