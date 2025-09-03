@@ -10,6 +10,7 @@ import (
 	"github.com/7StaSH7/gometrics/internal/repository"
 	metricsservice "github.com/7StaSH7/gometrics/internal/service/metrics"
 	"github.com/7StaSH7/gometrics/internal/storage"
+	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 )
 
@@ -28,6 +29,9 @@ func run() error {
 
 	logger.Initialize(sCfg.LogLevel)
 	server.Use(middleware.RequestLogger)
+	server.Use(gzip.Gzip(gzip.DefaultCompression))
+	// Мой мидлвар работает, просто для джина можно использовать сторонний пакет
+	// server.Use(middleware.GzipMiddleware)
 	server.Use(gin.Recovery())
 
 	stor := storage.NewStorage()
