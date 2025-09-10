@@ -1,6 +1,10 @@
 package metrics
 
-import "github.com/7StaSH7/gometrics/internal/repository"
+import (
+	"context"
+
+	"github.com/7StaSH7/gometrics/internal/repository/storage"
+)
 
 type MetricsService interface {
 	UpdateCounter(name string, value int64) error
@@ -8,13 +12,14 @@ type MetricsService interface {
 	GetCounter(name string) (int64, error)
 	GetGauge(name string) (float64, error)
 	GetMany() map[string]string
+	Store(ctx context.Context, restore bool, interval int) error
 }
 
 type metricsService struct {
-	storageRep repository.MemStorageRepository
+	storageRep storage.MemStorageRepository
 }
 
-func New(storageRep repository.MemStorageRepository) MetricsService {
+func New(storageRep storage.MemStorageRepository) MetricsService {
 	return &metricsService{
 		storageRep: storageRep,
 	}
