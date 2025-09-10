@@ -11,7 +11,7 @@ func (s *metricsService) Store(ctx context.Context, restore bool, interval int) 
 
 	if restore {
 		if err := s.storageRep.Restore(); err != nil {
-			panic(err)
+			return err
 		}
 	}
 
@@ -21,7 +21,7 @@ func (s *metricsService) Store(ctx context.Context, restore bool, interval int) 
 			return nil
 		case <-metricStore.C:
 			if err := s.storageRep.Store(); err != nil {
-				panic(err)
+				return err
 			}
 		}
 	}

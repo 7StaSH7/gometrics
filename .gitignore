@@ -27,3 +27,6 @@ vendor/
 
 # Tests
 metricstest
+
+# Storage file
+store.json

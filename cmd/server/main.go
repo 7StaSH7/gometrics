@@ -17,6 +17,7 @@ import (
 	metricsservice "github.com/7StaSH7/gometrics/internal/service/metrics"
 	"github.com/7StaSH7/gometrics/internal/storage"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -26,7 +27,7 @@ func main() {
 	}
 }
 
-func run() error {
+func initDeps() (*config.ServerConfig, *gin.Engine, metricsservice.MetricsService) {
 	cfg := config.NewServerConfig()
 
 	router := gin.New()
@@ -49,6 +50,12 @@ func run() error {
 
 	mHan.Register(router)
 
+	return cfg, router, mSer
+}
+
+func run() error {
+	cfg, router, ser := initDeps()
+
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
@@ -64,21 +71,24 @@ func run() error {
 
 	if cfg.StoreInterval != 0 {
 		g.Go(func() error {
-			return mSer.Store(ctx, cfg.Restore, cfg.StoreInterval)
+			return ser.Store(ctx, cfg.Restore, cfg.StoreInterval)
 		})
 	}
 
 	g.Go(func() error {
+		logger.Log.Info("server started", zap.String("address", cfg.Address))
+
 		return srv.ListenAndServe()
 	})
 
 	g.Go(func() error {
 		<-gCtx.Done()
+
 		return srv.Shutdown(context.Background())
 	})
 
 	if err := g.Wait(); err != nil {
-		fmt.Printf("exit reason: %s \n", err)
+		fmt.Printf("exit reason: %s \n", err.Error())
 	}
 
 	return nil
