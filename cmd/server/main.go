@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"net"
 	"net/http"
@@ -10,6 +11,9 @@ import (
 	"syscall"
 
 	"github.com/7StaSH7/gometrics/internal/config"
+	"github.com/7StaSH7/gometrics/internal/config/db"
+	"github.com/7StaSH7/gometrics/internal/driver"
+	healthhandler "github.com/7StaSH7/gometrics/internal/handler/health"
 	metricshandler "github.com/7StaSH7/gometrics/internal/handler/metrics"
 	"github.com/7StaSH7/gometrics/internal/logger"
 	"github.com/7StaSH7/gometrics/internal/middleware"
@@ -27,8 +31,10 @@ func main() {
 	}
 }
 
-func initDeps() (*config.ServerConfig, *gin.Engine, metricsservice.MetricsService) {
+func initDeps(ctx context.Context) (*config.ServerConfig, *gin.Engine, metricsservice.MetricsService) {
 	cfg := config.NewServerConfig()
+	psqlCfg := db.NewPostgresConfig()
+	flag.Parse()
 
 	router := gin.New()
 
@@ -41,37 +47,43 @@ func initDeps() (*config.ServerConfig, *gin.Engine, metricsservice.MetricsServic
 	router.Use(gin.Recovery())
 
 	stor := storage.NewStorage(cfg)
+	psqlConn, err := driver.NewPostgresDriver(ctx, psqlCfg)
+	if err != nil {
+		logger.Log.Error("psql connection error", zap.Error(err))
+	}
 
 	storRep := storagerepositsory.NewMemStorageRepository(stor)
 
 	mSer := metricsservice.New(storRep)
 
-	mHan := metricshandler.NewHandler(mSer)
+	mHan := metricshandler.New(mSer)
+	hHan := healthhandler.New(psqlConn)
 
 	mHan.Register(router)
+	hHan.Register(router)
 
 	return cfg, router, mSer
 }
 
 func run() error {
-	cfg, router, ser := initDeps()
-
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
+
+	g, gCtx := errgroup.WithContext(ctx)
+
+	cfg, router, ser := initDeps(gCtx)
 
 	srv := &http.Server{
 		Addr:    cfg.Address,
 		Handler: router,
 		BaseContext: func(_ net.Listener) context.Context {
-			return ctx
+			return gCtx
 		},
 	}
 
-	g, gCtx := errgroup.WithContext(ctx)
-
 	if cfg.StoreInterval != 0 {
 		g.Go(func() error {
-			return ser.Store(ctx, cfg.Restore, cfg.StoreInterval)
+			return ser.Store(gCtx, cfg.Restore, cfg.StoreInterval)
 		})
 	}
 

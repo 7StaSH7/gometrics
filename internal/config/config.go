@@ -23,7 +23,6 @@ func NewServerConfig() *ServerConfig {
 	flag.IntVar(&cfg.StoreInterval, "i", 300, "interval to store metrics to file")
 	flag.StringVar(&cfg.StoreFilePath, "f", "metrics.json", "path to json file to store metrics")
 	flag.BoolVar(&cfg.Restore, "r", false, "if need to restore from file first")
-	flag.Parse()
 
 	if err := env.Parse(cfg); err != nil {
 		log.Panic(err)

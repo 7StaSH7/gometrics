@@ -21,7 +21,7 @@ type MetricsHandler interface {
 	GetMany(*gin.Context)
 }
 
-func NewHandler(s metrics.MetricsService) MetricsHandler {
+func New(s metrics.MetricsService) MetricsHandler {
 	return &metricsHandler{
 		metricsService: s,
 	}
