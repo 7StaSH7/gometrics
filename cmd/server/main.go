@@ -1,16 +1,24 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"net"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/7StaSH7/gometrics/internal/config"
 	metricshandler "github.com/7StaSH7/gometrics/internal/handler/metrics"
 	"github.com/7StaSH7/gometrics/internal/logger"
 	"github.com/7StaSH7/gometrics/internal/middleware"
-	"github.com/7StaSH7/gometrics/internal/repository"
+	storagerepositsory "github.com/7StaSH7/gometrics/internal/repository/storage"
 	metricsservice "github.com/7StaSH7/gometrics/internal/service/metrics"
 	"github.com/7StaSH7/gometrics/internal/storage"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 func main() {
@@ -19,28 +27,69 @@ func main() {
 	}
 }
 
-func run() error {
-	sCfg := config.NewServerConfig()
+func initDeps() (*config.ServerConfig, *gin.Engine, metricsservice.MetricsService) {
+	cfg := config.NewServerConfig()
 
-	server := gin.New()
+	router := gin.New()
 
-	server.LoadHTMLGlob("templates/*")
+	router.LoadHTMLGlob("templates/*")
 
-	logger.Initialize(sCfg.LogLevel)
-	server.Use(middleware.RequestLogger)
-	
-	server.Use(middleware.GzipMiddleware)
-	server.Use(gin.Recovery())
+	logger.Initialize(cfg.LogLevel)
+	router.Use(middleware.RequestLogger)
 
-	stor := storage.NewStorage()
+	router.Use(middleware.GzipMiddleware)
+	router.Use(gin.Recovery())
 
-	storRep := repository.NewMemStorageRepository(stor)
+	stor := storage.NewStorage(cfg)
+
+	storRep := storagerepositsory.NewMemStorageRepository(stor)
 
 	mSer := metricsservice.New(storRep)
 
 	mHan := metricshandler.NewHandler(mSer)
 
-	mHan.Register(server)
+	mHan.Register(router)
 
-	return server.Run(sCfg.Address)
+	return cfg, router, mSer
+}
+
+func run() error {
+	cfg, router, ser := initDeps()
+
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
+	srv := &http.Server{
+		Addr:    cfg.Address,
+		Handler: router,
+		BaseContext: func(_ net.Listener) context.Context {
+			return ctx
+		},
+	}
+
+	g, gCtx := errgroup.WithContext(ctx)
+
+	if cfg.StoreInterval != 0 {
+		g.Go(func() error {
+			return ser.Store(ctx, cfg.Restore, cfg.StoreInterval)
+		})
+	}
+
+	g.Go(func() error {
+		logger.Log.Info("server started", zap.String("address", cfg.Address))
+
+		return srv.ListenAndServe()
+	})
+
+	g.Go(func() error {
+		<-gCtx.Done()
+
+		return srv.Shutdown(context.Background())
+	})
+
+	if err := g.Wait(); err != nil {
+		fmt.Printf("exit reason: %s \n", err.Error())
+	}
+
+	return nil
 }

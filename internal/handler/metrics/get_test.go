@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -37,6 +38,12 @@ func (m *MockMetricsService) GetMany() map[string]string {
 	args := m.Called()
 
 	return args.Get(0).(map[string]string)
+}
+
+func (m *MockMetricsService) Store(ctx context.Context, restore bool, interval int) error {
+	args := m.Called()
+
+	return args.Error(1)
 }
 
 func TestGet(t *testing.T) {
