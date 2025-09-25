@@ -1,9 +1,9 @@
 package storage
 
-func (s *memStorageRepository) Store() error {
-	return s.storage.Store()
+func (rep *memStorageRepository) Store() error {
+	return rep.storage.Store()
 }
 
-func (s *memStorageRepository) Restore() error {
-	return s.storage.Restore()
+func (rep *memStorageRepository) Restore() error {
+	return rep.storage.Restore()
 }

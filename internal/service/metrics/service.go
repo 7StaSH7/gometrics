@@ -3,6 +3,7 @@ package metrics
 import (
 	"context"
 
+	"github.com/7StaSH7/gometrics/internal/repository/db"
 	"github.com/7StaSH7/gometrics/internal/repository/storage"
 )
 
@@ -17,10 +18,12 @@ type MetricsService interface {
 
 type metricsService struct {
 	storageRep storage.MemStorageRepository
+	dbRep      db.DatabaseRepository
 }
 
-func New(storageRep storage.MemStorageRepository) MetricsService {
+func New(storageRep storage.MemStorageRepository, dbRep db.DatabaseRepository) MetricsService {
 	return &metricsService{
 		storageRep: storageRep,
+		dbRep:      dbRep,
 	}
 }

@@ -9,8 +9,8 @@ type memStorageRepository struct {
 }
 
 type MemStorageRepository interface {
-	Replace(name string, value float64)
-	Add(name string, value int64)
+	Replace(name string, value float64) error
+	Add(name string, value int64) error
 	ReadCounter(string) (int64, error)
 	ReadGauge(string) (float64, error)
 	ReadAll() map[string]string

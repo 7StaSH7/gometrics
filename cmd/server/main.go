@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"net"
 	"net/http"
@@ -11,8 +10,10 @@ import (
 	"syscall"
 
 	"github.com/7StaSH7/gometrics/internal/config"
-	"github.com/7StaSH7/gometrics/internal/config/db"
-	"github.com/7StaSH7/gometrics/internal/driver"
+	dbconfig "github.com/7StaSH7/gometrics/internal/config/db"
+	databaserepository "github.com/7StaSH7/gometrics/internal/repository/db"
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	healthhandler "github.com/7StaSH7/gometrics/internal/handler/health"
 	metricshandler "github.com/7StaSH7/gometrics/internal/handler/metrics"
 	"github.com/7StaSH7/gometrics/internal/logger"
@@ -31,10 +32,8 @@ func main() {
 	}
 }
 
-func initDeps(ctx context.Context) (*config.ServerConfig, *gin.Engine, metricsservice.MetricsService) {
-	cfg := config.NewServerConfig()
-	psqlCfg := db.NewPostgresConfig()
-	flag.Parse()
+func initDeps(ctx context.Context) (*config.ServerConfig, *gin.Engine, metricsservice.MetricsService, *pgxpool.Pool) {
+	cfg, psqlCfg := config.NewServerConfig()
 
 	router := gin.New()
 
@@ -47,22 +46,24 @@ func initDeps(ctx context.Context) (*config.ServerConfig, *gin.Engine, metricsse
 	router.Use(gin.Recovery())
 
 	stor := storage.NewStorage(cfg)
-	psqlConn, err := driver.NewPostgresDriver(ctx, psqlCfg)
+
+	psqlPool, err := dbconfig.NewPostgresDriver(ctx, psqlCfg)
 	if err != nil {
 		logger.Log.Error("psql connection error", zap.Error(err))
 	}
 
 	storRep := storagerepositsory.NewMemStorageRepository(stor)
+	dbRep := databaserepository.NewDatabaseRepository(psqlPool)
 
-	mSer := metricsservice.New(storRep)
+	mSer := metricsservice.New(storRep, dbRep)
 
 	mHan := metricshandler.New(mSer)
-	hHan := healthhandler.New(psqlConn)
+	hHan := healthhandler.New(psqlPool)
 
 	mHan.Register(router)
 	hHan.Register(router)
 
-	return cfg, router, mSer
+	return cfg, router, mSer, psqlPool
 }
 
 func run() error {
@@ -71,7 +72,7 @@ func run() error {
 
 	g, gCtx := errgroup.WithContext(ctx)
 
-	cfg, router, ser := initDeps(gCtx)
+	cfg, router, ser, pool := initDeps(gCtx)
 
 	srv := &http.Server{
 		Addr:    cfg.Address,
@@ -96,6 +97,7 @@ func run() error {
 	g.Go(func() error {
 		<-gCtx.Done()
 
+		pool.Close()
 		return srv.Shutdown(context.Background())
 	})
 

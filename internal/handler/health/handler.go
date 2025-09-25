@@ -2,26 +2,30 @@ package health
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type healthHandler struct {
-	conn *pgx.Conn
+	pool *pgxpool.Pool
 }
 
 type HealthHandler interface {
 	Register(*gin.Engine)
 }
 
-func New(conn *pgx.Conn) HealthHandler {
+func New(pool *pgxpool.Pool) HealthHandler {
 	return &healthHandler{
-		conn: conn,
+		pool: pool,
 	}
 }
 
 func (h *healthHandler) Register(e *gin.Engine) {
 	e.GET("/ping", func(c *gin.Context) {
-		if err := h.conn.Ping(c); err != nil {
+		if h.pool == nil {
+			c.JSON(500, gin.H{"error": "connection is nil"})
+			return
+		}
+		if err := h.pool.Ping(c); err != nil {
 			c.JSON(500, gin.H{"error": err.Error()})
 			return
 		}

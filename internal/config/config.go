@@ -4,6 +4,7 @@ import (
 	"flag"
 	"log"
 
+	"github.com/7StaSH7/gometrics/internal/config/db"
 	"github.com/caarlos0/env"
 )
 
@@ -15,8 +16,9 @@ type ServerConfig struct {
 	Restore       bool   `env:"RESTORE"`
 }
 
-func NewServerConfig() *ServerConfig {
+func NewServerConfig() (*ServerConfig, *db.PostgresConfig) {
 	cfg := &ServerConfig{}
+	psqlCfg := &db.PostgresConfig{}
 
 	flag.StringVar(&cfg.LogLevel, "l", "info", "log level")
 	flag.StringVar(&cfg.Address, "a", "localhost:8080", "address to listen on")
@@ -24,9 +26,16 @@ func NewServerConfig() *ServerConfig {
 	flag.StringVar(&cfg.StoreFilePath, "f", "metrics.json", "path to json file to store metrics")
 	flag.BoolVar(&cfg.Restore, "r", false, "if need to restore from file first")
 
+	flag.StringVar(&psqlCfg.URL, "d", "postgres://postgres:postgres@localhost:5432/metrics?search_path=public&sslmode=disable", "url for postgres db connection")
+
+	flag.Parse()
+
 	if err := env.Parse(cfg); err != nil {
 		log.Panic(err)
 	}
+	if err := env.Parse(psqlCfg); err != nil {
+		log.Panic(err)
+	}
 
-	return cfg
+	return cfg, psqlCfg
 }

@@ -1,13 +1,29 @@
 package metrics
 
 func (s *metricsService) UpdateCounter(name string, value int64) error {
-	s.storageRep.Add(name, value)
+	if s.dbRep.Ping() == true {
+		if err := s.dbRep.Add(name, value); err != nil {
+			return err
+		}
+	}
+
+	if err := s.storageRep.Add(name, value); err != nil {
+		return err
+	}
 
 	return nil
 }
 
 func (s *metricsService) UpdateGauge(name string, value float64) error {
-	s.storageRep.Replace(name, value)
+	if s.dbRep.Ping() == true {
+		if err := s.dbRep.Replace(name, value); err != nil {
+			return err
+		}
+	}
+
+	if err := s.storageRep.Replace(name, value); err != nil {
+		return err
+	}
 
 	return nil
 }

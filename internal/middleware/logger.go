@@ -29,7 +29,7 @@ func RequestLogger(c *gin.Context) {
 	logger.Log.Info("request completed",
 		zap.String("uri", c.Request.URL.Path),
 		zap.String("method", c.Request.Method),
-		zap.Duration("duration", duration),
+		zap.Int64("duration", duration.Microseconds()),
 		zap.Any("resp", gin.H{
 			"status": c.Writer.Status(),
 			"size":   c.Writer.Size(),
