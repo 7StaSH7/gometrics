@@ -1,7 +1,7 @@
 package metrics
 
 func (s *metricsService) GetCounter(name string) (int64, error) {
-	if s.dbRep.Ping() == true {
+	if s.dbRep.Ping() {
 		return s.dbRep.ReadCounter(name)
 	}
 
@@ -9,7 +9,7 @@ func (s *metricsService) GetCounter(name string) (int64, error) {
 }
 
 func (s *metricsService) GetGauge(name string) (float64, error) {
-	if s.dbRep.Ping() == true {
+	if s.dbRep.Ping() {
 		return s.dbRep.ReadGauge(name)
 	}
 
@@ -17,7 +17,7 @@ func (s *metricsService) GetGauge(name string) (float64, error) {
 }
 
 func (s *metricsService) GetMany() map[string]string {
-	if s.dbRep.Ping() == true {
+	if s.dbRep.Ping() {
 		return s.dbRep.ReadAll()
 	}
 

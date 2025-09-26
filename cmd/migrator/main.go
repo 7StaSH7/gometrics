@@ -17,7 +17,7 @@ const (
 )
 
 const (
-	migration_dir = "file://migrations"
+	migrationDir = "file://migrations"
 )
 
 func main() {
@@ -25,7 +25,7 @@ func main() {
 
 	_, cfg := config.NewServerConfig()
 
-	m, err := migrate.New(migration_dir, cfg.URL)
+	m, err := migrate.New(migrationDir, cfg.URL)
 	if err != nil {
 		log.Fatal(err)
 	}
