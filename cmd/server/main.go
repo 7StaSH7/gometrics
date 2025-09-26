@@ -12,7 +12,6 @@ import (
 	"github.com/7StaSH7/gometrics/internal/config"
 	dbconfig "github.com/7StaSH7/gometrics/internal/config/db"
 	databaserepository "github.com/7StaSH7/gometrics/internal/repository/db"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	healthhandler "github.com/7StaSH7/gometrics/internal/handler/health"
 	metricshandler "github.com/7StaSH7/gometrics/internal/handler/metrics"
@@ -32,7 +31,7 @@ func main() {
 	}
 }
 
-func initDeps(ctx context.Context) (*config.ServerConfig, *gin.Engine, metricsservice.MetricsService, *pgxpool.Pool) {
+func initDeps(ctx context.Context) (*config.ServerConfig, *gin.Engine, metricsservice.MetricsService) {
 	cfg, psqlCfg := config.NewServerConfig()
 
 	router := gin.New()
@@ -63,7 +62,7 @@ func initDeps(ctx context.Context) (*config.ServerConfig, *gin.Engine, metricsse
 	mHan.Register(router)
 	hHan.Register(router)
 
-	return cfg, router, mSer, psqlPool
+	return cfg, router, mSer
 }
 
 func run() error {
@@ -72,7 +71,7 @@ func run() error {
 
 	g, gCtx := errgroup.WithContext(ctx)
 
-	cfg, router, ser, pool := initDeps(gCtx)
+	cfg, router, ser := initDeps(gCtx)
 
 	srv := &http.Server{
 		Addr:    cfg.Address,
@@ -97,7 +96,6 @@ func run() error {
 	g.Go(func() error {
 		<-gCtx.Done()
 
-		pool.Close()
 		return srv.Shutdown(context.Background())
 	})
 

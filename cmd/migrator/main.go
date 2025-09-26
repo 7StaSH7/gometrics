@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"os"
 
@@ -13,12 +12,12 @@ import (
 )
 
 const (
-	UP   = "up"
-	DOWN = "down"
+	Up   = "up"
+	Down = "down"
 )
 
 const (
-	MIGRATION_DIR = "file://migrations"
+	migration_dir = "file://migrations"
 )
 
 func main() {
@@ -26,15 +25,13 @@ func main() {
 
 	_, cfg := config.NewServerConfig()
 
-	fmt.Println(dir, cfg.URL)
-
-	m, err := migrate.New(MIGRATION_DIR, cfg.URL)
+	m, err := migrate.New(migration_dir, cfg.URL)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	switch dir {
-	case UP:
+	case Up:
 		{
 			if err := up(m); err != nil {
 				log.Fatal(err)
@@ -42,7 +39,7 @@ func main() {
 			log.Println("Migration up completed")
 			os.Exit(0)
 		}
-	case DOWN:
+	case Down:
 		{
 			if err := down(m); err != nil {
 				log.Fatal(err)
@@ -53,6 +50,7 @@ func main() {
 	default:
 		{
 			log.Fatal("Invalid migration direction")
+			os.Exit(0)
 		}
 	}
 }

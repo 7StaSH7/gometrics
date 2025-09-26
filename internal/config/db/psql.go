@@ -14,12 +14,17 @@ type PostgresConfig struct {
 }
 
 func NewPostgresDriver(ctx context.Context, cfg *PostgresConfig) (*pgxpool.Pool, error) {
-	pool, err := pgxpool.New(ctx, cfg.URL)
+	if err := autoMigrate(cfg.URL); err != nil {
+		return nil, err
+	}
+
+	conf, err := pgxpool.ParseConfig(cfg.URL)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := autoMigrate(cfg.URL); err != nil {
+	pool, err := pgxpool.NewWithConfig(ctx, conf)
+	if err != nil {
 		return nil, err
 	}
 
@@ -31,6 +36,8 @@ func autoMigrate(dsn string) error {
 	if err != nil {
 		return err
 	}
+	defer m.Close()
+
 	if err := m.Up(); err != nil {
 		if err == migrate.ErrNoChange {
 			return nil
