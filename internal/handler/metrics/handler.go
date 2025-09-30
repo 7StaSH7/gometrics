@@ -12,6 +12,7 @@ type metricsHandler struct {
 type MetricsHandler interface {
 	UpdateJSON(*gin.Context)
 	GetJSON(*gin.Context)
+	Updates(*gin.Context)
 
 	Update(*gin.Context)
 	GetOne(*gin.Context)
@@ -33,6 +34,7 @@ func (h *metricsHandler) Register(e *gin.Engine) {
 
 	e.POST("/update/", h.UpdateJSON)
 	e.POST("/value/", h.GetJSON)
+	e.POST("/updates/", h.Updates)
 
 	e.GET("", h.GetMany)
 }

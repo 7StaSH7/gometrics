@@ -35,7 +35,7 @@ func (rep *databaseRepository) ReadAll() map[string]string {
 func (rep *databaseRepository) ReadCounter(name string) (int64, error) {
 	var res int64
 
-	if err := rep.db.QueryRow(context.Background(), "select delta from metrics where id = $1;", name).Scan(&res); err != nil {
+	if err := rep.db.QueryRow(context.Background(), "select delta from metrics where id = $1", name).Scan(&res); err != nil {
 		return 0, err
 	}
 
@@ -45,7 +45,7 @@ func (rep *databaseRepository) ReadCounter(name string) (int64, error) {
 func (rep *databaseRepository) ReadGauge(name string) (float64, error) {
 	var res float64
 
-	if err := rep.db.QueryRow(context.Background(), "select value from metrics where where id = $1;", name).Scan(&res); err != nil {
+	if err := rep.db.QueryRow(context.Background(), "select value from metrics where id = $1", name).Scan(&res); err != nil {
 		return 0, err
 	}
 

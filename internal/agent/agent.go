@@ -61,6 +61,7 @@ type Agent struct {
 type AgentInterface interface {
 	GetMetric()
 	SendMetrics()
+	SendMetricsBatch()
 	Close() error
 }
 
@@ -79,15 +80,46 @@ func (a *Agent) SendMetrics() {
 		f := v.Field(i)
 		switch f.Kind() {
 		case reflect.Float64:
-			if err := a.request(model.Gauge, v.Type().Field(i).Name, f.Float()); err != nil {
+			if err := a.sendOneMetric(model.Gauge, v.Type().Field(i).Name, f.Float()); err != nil {
 				fmt.Printf("Error sending gauge metric %s: %v\n", v.Type().Field(i).Name, err)
 			}
 
 		case reflect.Int64:
-			if err := a.request(model.Counter, v.Type().Field(i).Name, f.Int()); err != nil {
+			if err := a.sendOneMetric(model.Counter, v.Type().Field(i).Name, f.Int()); err != nil {
 				fmt.Printf("Error sending counter metric %s: %v\n", v.Type().Field(i).Name, err)
 			}
+		}
+	}
+}
 
+func (a *Agent) SendMetricsBatch() {
+	v := reflect.ValueOf(&m)
+	v = v.Elem()
+	metrics := make([]model.Metrics, 0, v.NumField())
+	for i := 0; i < v.NumField(); i++ {
+		f := v.Field(i)
+		switch f.Kind() {
+		case reflect.Float64:
+			value := f.Float()
+			metrics = append(metrics, model.Metrics{
+				ID:    v.Type().Field(i).Name,
+				MType: model.Gauge,
+				Value: &value,
+			})
+
+		case reflect.Int64:
+			delta := f.Int()
+			metrics = append(metrics, model.Metrics{
+				ID:    v.Type().Field(i).Name,
+				MType: model.Gauge,
+				Delta: &delta,
+			})
+		}
+	}
+
+	if len(metrics) > 0 {
+		if err := a.sendBatchMetrics(metrics); err != nil {
+			fmt.Printf("Error sending metrics %v\n", err)
 		}
 	}
 }
@@ -129,7 +161,7 @@ func (a *Agent) Close() error {
 	return nil
 }
 
-func (a *Agent) request(mType, name string, value any) error {
+func (a *Agent) sendOneMetric(mType, name string, value any) error {
 	body := model.Metrics{ID: name}
 	switch mType {
 	case model.Counter:
@@ -158,6 +190,34 @@ func (a *Agent) request(mType, name string, value any) error {
 	}
 
 	url := fmt.Sprintf("%s/update/", a.baseURL)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	return nil
+}
+
+func (a *Agent) sendBatchMetrics(metrics []model.Metrics) error {
+	jsonData, err := json.Marshal(metrics)
+	if err != nil {
+		return fmt.Errorf("failed to marshal JSON: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/updates/", a.baseURL)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)

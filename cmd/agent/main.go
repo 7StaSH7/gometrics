@@ -31,7 +31,7 @@ func main() {
 		case <-ctx.Done():
 			return
 		case <-metricReport.C:
-			a.SendMetrics()
+			a.SendMetricsBatch()
 		case <-metricPoll.C:
 			a.GetMetric()
 		}
