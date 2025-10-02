@@ -87,7 +87,7 @@ func ExecuteWithRetry(pool *pgxpool.Pool, tx pgx.Tx, sql SQL) error {
 
 	classifier := NewPostgresErrorClassifier()
 
-	for _ = range maxRetries {
+	for range maxRetries {
 		var err error
 		ctx := context.Background()
 		if pool != nil {
@@ -104,7 +104,7 @@ func ExecuteWithRetry(pool *pgxpool.Pool, tx pgx.Tx, sql SQL) error {
 
 		classification := classifier.Classify(err)
 		if classification == NonRetriable {
-			return fmt.Errorf("Error: %w\n", err)
+			return fmt.Errorf("error: %w", err)
 		}
 	}
 

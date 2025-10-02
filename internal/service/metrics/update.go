@@ -34,9 +34,13 @@ func (s *metricsService) UpdateGauge(tx pgx.Tx, name string, value float64) erro
 }
 
 func (s *metricsService) Updates(metrics []model.Metrics) error {
+	var tx pgx.Tx
+	var err error
 
-	tx, err := s.dbRep.StartTransaction()
-	defer s.dbRep.IntrospectTransaction(tx, err)
+	if s.dbRep.Ping() {
+		tx, err = s.dbRep.StartTransaction()
+		defer s.dbRep.IntrospectTransaction(tx, err)
+	}
 
 	for _, m := range metrics {
 		switch m.MType {

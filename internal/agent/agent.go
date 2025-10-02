@@ -102,12 +102,12 @@ func (a *Agent) SendMetrics() error {
 		switch f.Kind() {
 		case reflect.Float64:
 			if err := a.sendOneMetric(model.Gauge, v.Type().Field(i).Name, f.Float()); err != nil {
-				return fmt.Errorf("Error sending gauge metric %s: %v", v.Type().Field(i).Name, err)
+				return fmt.Errorf("error sending gauge metric %s: %v", v.Type().Field(i).Name, err)
 			}
 
 		case reflect.Int64:
 			if err := a.sendOneMetric(model.Counter, v.Type().Field(i).Name, f.Int()); err != nil {
-				return fmt.Errorf("Error sending counter metric %s: %v", v.Type().Field(i).Name, err)
+				return fmt.Errorf("error sending counter metric %s: %v", v.Type().Field(i).Name, err)
 			}
 		}
 	}
@@ -142,7 +142,7 @@ func (a *Agent) SendMetricsBatch() error {
 
 	if len(metrics) > 0 {
 		if err := a.sendBatchMetrics(metrics); err != nil {
-			return fmt.Errorf("Error sending metrics %v", err)
+			return fmt.Errorf("error sending metrics %v", err)
 		}
 	}
 
