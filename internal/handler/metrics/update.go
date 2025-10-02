@@ -110,7 +110,7 @@ func (h *metricsHandler) UpdateJSON(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{})
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
 }
 
 func (h *metricsHandler) Updates(c *gin.Context) {
@@ -145,7 +145,7 @@ func (h *metricsHandler) Updates(c *gin.Context) {
 		case model.Gauge:
 			{
 				if m.Value == nil {
-					logger.Log.Debug("'Value' field is missing")
+					logger.Log.Debug("'Value' field is missing", zap.String("field", m.ID))
 					c.JSON(http.StatusBadRequest, gin.H{"error": "'Value' is missing"})
 					return
 				}
@@ -158,5 +158,5 @@ func (h *metricsHandler) Updates(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{})
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
 }

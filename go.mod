@@ -6,10 +6,12 @@ require (
 	github.com/caarlos0/env v3.5.0+incompatible
 	github.com/gin-gonic/gin v1.10.1
 	github.com/golang-migrate/migrate/v4 v4.19.0
+	github.com/jackc/pgerrcode v0.0.0-20220416144525-469b46aa5efa
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/sync v0.17.0
+	resty.dev/v3 v3.0.0-beta.3
 )
 
 require (

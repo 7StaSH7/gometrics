@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"errors"
 
 	"github.com/7StaSH7/gometrics/internal/logger"
 	"github.com/golang-migrate/migrate/v4"
@@ -58,7 +59,7 @@ func autoMigrate(dsn string) error {
 	defer m.Close()
 
 	if err := m.Up(); err != nil {
-		if err == migrate.ErrNoChange {
+		if errors.Is(err, migrate.ErrNoChange) {
 			return nil
 		}
 

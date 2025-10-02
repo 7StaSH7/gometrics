@@ -1,8 +1,7 @@
 package db
 
 import (
-	"context"
-
+	pgerrors "github.com/7StaSH7/gometrics/internal/config/db/errors"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -13,11 +12,11 @@ func (rep *databaseRepository) Add(tx pgx.Tx, name string, delta int64) error {
     set	delta = metrics.delta + excluded.delta;
   `
 	if tx != nil {
-		if _, err := tx.Exec(context.Background(), sql, name, delta); err != nil {
+		if err := pgerrors.ExecuteWithRetry(nil, tx, pgerrors.SQL{Query: sql, Args: []any{name, delta}}); err != nil {
 			return err
 		}
 	} else {
-		if _, err := rep.db.Exec(context.Background(), sql, name, delta); err != nil {
+		if err := pgerrors.ExecuteWithRetry(rep.db, nil, pgerrors.SQL{Query: sql, Args: []any{name, delta}}); err != nil {
 			return err
 		}
 	}
@@ -32,11 +31,11 @@ func (rep *databaseRepository) Replace(tx pgx.Tx, name string, value float64) er
     set	value = excluded.value;
   `
 	if tx != nil {
-		if _, err := tx.Exec(context.Background(), sql, name, value); err != nil {
+		if err := pgerrors.ExecuteWithRetry(nil, tx, pgerrors.SQL{Query: sql, Args: []any{name, value}}); err != nil {
 			return err
 		}
 	} else {
-		if _, err := rep.db.Exec(context.Background(), sql, name, value); err != nil {
+		if err := pgerrors.ExecuteWithRetry(rep.db, nil, pgerrors.SQL{Query: sql, Args: []any{name, value}}); err != nil {
 			return err
 		}
 	}

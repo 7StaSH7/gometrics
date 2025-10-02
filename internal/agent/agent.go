@@ -1,18 +1,17 @@
 package agent
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"math/rand/v2"
-	"net/http"
 	"reflect"
 	"runtime"
+	"time"
 
 	"github.com/7StaSH7/gometrics/internal/config"
 	"github.com/7StaSH7/gometrics/internal/model"
+	"resty.dev/v3"
 )
 
 type Gauge float64
@@ -54,25 +53,47 @@ var m Metric
 var ms runtime.MemStats
 
 type Agent struct {
-	client  *http.Client
+	client  *resty.Client
 	baseURL string
 }
 
 type AgentInterface interface {
 	GetMetric()
-	SendMetrics()
-	SendMetricsBatch()
+	SendMetrics() error
+	SendMetricsBatch() error
 	Close() error
 }
 
-func New(aCfg *config.AgentConfig) AgentInterface {
+func New(cfg *config.AgentConfig) AgentInterface {
+	client := resty.New().
+		AddRetryConditions(
+			func(res *resty.Response, err error) bool {
+				if res == nil {
+					return true
+				}
+				if err != nil {
+					return true
+				}
+				return false
+			},
+		).
+		SetDebug(true).
+		SetRetryStrategy(
+			func(_ *resty.Response, _ error) (time.Duration, error) {
+				return 2 * time.Second, nil
+			}).
+		SetAllowNonIdempotentRetry(true).
+		SetRetryCount(3).
+		SetRetryWaitTime(1 * time.Second).
+		SetRetryMaxWaitTime(5 * time.Second)
+
 	return &Agent{
-		client:  &http.Client{},
-		baseURL: fmt.Sprintf("http://%s", aCfg.Address),
+		client:  client,
+		baseURL: fmt.Sprintf("http://%s", cfg.Address),
 	}
 }
 
-func (a *Agent) SendMetrics() {
+func (a *Agent) SendMetrics() error {
 	v := reflect.ValueOf(&m)
 	v = v.Elem()
 
@@ -81,18 +102,20 @@ func (a *Agent) SendMetrics() {
 		switch f.Kind() {
 		case reflect.Float64:
 			if err := a.sendOneMetric(model.Gauge, v.Type().Field(i).Name, f.Float()); err != nil {
-				fmt.Printf("Error sending gauge metric %s: %v\n", v.Type().Field(i).Name, err)
+				return fmt.Errorf("Error sending gauge metric %s: %v", v.Type().Field(i).Name, err)
 			}
 
 		case reflect.Int64:
 			if err := a.sendOneMetric(model.Counter, v.Type().Field(i).Name, f.Int()); err != nil {
-				fmt.Printf("Error sending counter metric %s: %v\n", v.Type().Field(i).Name, err)
+				return fmt.Errorf("Error sending counter metric %s: %v", v.Type().Field(i).Name, err)
 			}
 		}
 	}
+
+	return nil
 }
 
-func (a *Agent) SendMetricsBatch() {
+func (a *Agent) SendMetricsBatch() error {
 	v := reflect.ValueOf(&m)
 	v = v.Elem()
 	metrics := make([]model.Metrics, 0, v.NumField())
@@ -111,7 +134,7 @@ func (a *Agent) SendMetricsBatch() {
 			delta := f.Int()
 			metrics = append(metrics, model.Metrics{
 				ID:    v.Type().Field(i).Name,
-				MType: model.Gauge,
+				MType: model.Counter,
 				Delta: &delta,
 			})
 		}
@@ -119,9 +142,11 @@ func (a *Agent) SendMetricsBatch() {
 
 	if len(metrics) > 0 {
 		if err := a.sendBatchMetrics(metrics); err != nil {
-			fmt.Printf("Error sending metrics %v\n", err)
+			return fmt.Errorf("Error sending metrics %v", err)
 		}
 	}
+
+	return nil
 }
 
 func (a *Agent) GetMetric() {
@@ -158,7 +183,7 @@ func (a *Agent) GetMetric() {
 }
 
 func (a *Agent) Close() error {
-	return nil
+	return a.client.Close()
 }
 
 func (a *Agent) sendOneMetric(mType, name string, value any) error {
@@ -188,24 +213,15 @@ func (a *Agent) sendOneMetric(mType, name string, value any) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal JSON: %w", err)
 	}
+	fmt.Printf("send request with body: %s\n", string(jsonData))
 
 	url := fmt.Sprintf("%s/update/", a.baseURL)
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
+	req := a.client.NewRequest().
+		SetBody(body).
+		SetHeader("Content-Type", "application/json")
 
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := a.client.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(bodyBytes))
+	if _, err := req.Post(url); err != nil {
+		return err
 	}
 
 	return nil
@@ -216,25 +232,16 @@ func (a *Agent) sendBatchMetrics(metrics []model.Metrics) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal JSON: %w", err)
 	}
+	fmt.Printf("send request with body: %s\n", string(jsonData))
 
 	url := fmt.Sprintf("%s/updates/", a.baseURL)
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
+	req := a.client.NewRequest().
+		SetBody(metrics).
+		SetHeader("Content-Type", "application/json").
+		SetHeader("Accept-Encoding", "gzip")
 
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept-Encoding", "gzip")
-
-	resp, err := a.client.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(bodyBytes))
+	if _, err := req.Post(url); err != nil {
+		return err
 	}
 
 	return nil
