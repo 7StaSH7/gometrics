@@ -100,7 +100,7 @@ func run() error {
 	})
 
 	if err := g.Wait(); err != nil {
-		fmt.Printf("exit reason: %s \n", err.Error())
+		logger.Log.Info("exit reason", zap.Error(err))
 	}
 
 	return nil

@@ -94,7 +94,7 @@ func New(ctx context.Context, cfg *config.AgentConfig) AgentInterface {
 				default:
 					delay = 5 * time.Second
 				}
-				logger.Log.Info("Retry delay", zap.Duration("delay", delay))
+				logger.Log.Info("retrying", zap.Duration("delay", delay))
 				return delay, nil
 			}).
 		SetAllowNonIdempotentRetry(true).
