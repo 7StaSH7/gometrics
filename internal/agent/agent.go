@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,7 +11,9 @@ import (
 	"time"
 
 	"github.com/7StaSH7/gometrics/internal/config"
+	"github.com/7StaSH7/gometrics/internal/logger"
 	"github.com/7StaSH7/gometrics/internal/model"
+	"go.uber.org/zap"
 	"resty.dev/v3"
 )
 
@@ -64,7 +67,7 @@ type AgentInterface interface {
 	Close() error
 }
 
-func New(cfg *config.AgentConfig) AgentInterface {
+func New(ctx context.Context, cfg *config.AgentConfig) AgentInterface {
 	client := resty.New().
 		AddRetryConditions(
 			func(res *resty.Response, err error) bool {
@@ -77,10 +80,22 @@ func New(cfg *config.AgentConfig) AgentInterface {
 				return false
 			},
 		).
-		SetDebug(true).
+		SetContext(ctx).
 		SetRetryStrategy(
-			func(_ *resty.Response, _ error) (time.Duration, error) {
-				return 2 * time.Second, nil
+			func(resp *resty.Response, _ error) (time.Duration, error) {
+				var delay time.Duration
+				switch resp.Request.Attempt {
+				case 1:
+					delay = 1 * time.Second
+				case 2:
+					delay = 3 * time.Second
+				case 3:
+					delay = 5 * time.Second
+				default:
+					delay = 5 * time.Second
+				}
+				logger.Log.Info("Retry delay", zap.Duration("delay", delay))
+				return delay, nil
 			}).
 		SetAllowNonIdempotentRetry(true).
 		SetRetryCount(3).
@@ -102,12 +117,12 @@ func (a *Agent) SendMetrics() error {
 		switch f.Kind() {
 		case reflect.Float64:
 			if err := a.sendOneMetric(model.Gauge, v.Type().Field(i).Name, f.Float()); err != nil {
-				return fmt.Errorf("error sending gauge metric %s: %v", v.Type().Field(i).Name, err)
+				return fmt.Errorf("error sending gauge metric %s: %+v", v.Type().Field(i).Name, err)
 			}
 
 		case reflect.Int64:
 			if err := a.sendOneMetric(model.Counter, v.Type().Field(i).Name, f.Int()); err != nil {
-				return fmt.Errorf("error sending counter metric %s: %v", v.Type().Field(i).Name, err)
+				return fmt.Errorf("error sending counter metric %s: %+v", v.Type().Field(i).Name, err)
 			}
 		}
 	}
@@ -142,7 +157,7 @@ func (a *Agent) SendMetricsBatch() error {
 
 	if len(metrics) > 0 {
 		if err := a.sendBatchMetrics(metrics); err != nil {
-			return fmt.Errorf("error sending metrics %v", err)
+			return fmt.Errorf("error sending metrics %+v", err)
 		}
 	}
 
@@ -190,30 +205,26 @@ func (a *Agent) sendOneMetric(mType, name string, value any) error {
 	body := model.Metrics{ID: name}
 	switch mType {
 	case model.Counter:
-		{
-			body.MType = model.Counter
-			v, ok := value.(int64)
-			if !ok {
-				return errors.New("int64 not ok")
-			}
-			body.Delta = &v
+		body.MType = model.Counter
+		v, ok := value.(int64)
+		if !ok {
+			return errors.New("int64 not ok")
 		}
+		body.Delta = &v
 	case model.Gauge:
-		{
-			body.MType = model.Gauge
-			v, ok := value.(float64)
-			if !ok {
-				return errors.New("float64 not ok")
-			}
-			body.Value = &v
+		body.MType = model.Gauge
+		v, ok := value.(float64)
+		if !ok {
+			return errors.New("float64 not ok")
 		}
+		body.Value = &v
 	}
 
 	jsonData, err := json.Marshal(body)
 	if err != nil {
 		return fmt.Errorf("failed to marshal JSON: %w", err)
 	}
-	fmt.Printf("send request with body: %s\n", string(jsonData))
+	logger.Log.Info("send request with body", zap.String("body", string(jsonData)))
 
 	url := fmt.Sprintf("%s/update/", a.baseURL)
 	req := a.client.NewRequest().
@@ -232,7 +243,7 @@ func (a *Agent) sendBatchMetrics(metrics []model.Metrics) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal JSON: %w", err)
 	}
-	fmt.Printf("send request with body: %s\n", string(jsonData))
+	logger.Log.Info("send request with body", zap.String("body", string(jsonData)))
 
 	url := fmt.Sprintf("%s/updates/", a.baseURL)
 	req := a.client.NewRequest().

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -15,14 +14,15 @@ import (
 )
 
 func main() {
-	cfg := config.NewAgentConfig()
-	logger.Log.Info("agent cfg", zap.Any("cfg", cfg))
+	logger.Initialize("info")
 
-	a := agent.New(cfg)
-	defer a.Close()
+	cfg := config.NewAgentConfig()
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
+
+	a := agent.New(ctx, cfg)
+	defer a.Close()
 
 	metricPoll := time.NewTicker(time.Duration(cfg.PollInterval) * time.Second)
 	defer metricPoll.Stop()
@@ -30,13 +30,15 @@ func main() {
 	metricReport := time.NewTicker(time.Duration(cfg.ReportInterval) * time.Second)
 	defer metricReport.Stop()
 
+	logger.Log.Info("agent started", zap.Any("config", cfg))
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-metricReport.C:
 			if err := a.SendMetricsBatch(); err != nil {
-				fmt.Printf("something went wrong: %+v", err)
+				logger.Log.Error("something went wrong", zap.Error(err))
 				return
 			}
 		case <-metricPoll.C:

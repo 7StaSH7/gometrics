@@ -32,21 +32,17 @@ func main() {
 
 	switch dir {
 	case Up:
-		{
-			if err := up(m); err != nil {
-				log.Fatal(err)
-			}
-			log.Println("Migration up completed")
-			os.Exit(0)
+		if err := up(m); err != nil {
+			log.Fatal(err)
 		}
+		log.Println("Migration up completed")
+		os.Exit(0)
 	case Down:
-		{
-			if err := down(m); err != nil {
-				log.Fatal(err)
-			}
-			log.Println("Migration down completed")
-			os.Exit(0)
+		if err := down(m); err != nil {
+			log.Fatal(err)
 		}
+		log.Println("Migration down completed")
+		os.Exit(0)
 	default:
 		{
 			log.Fatal("Invalid migration direction")

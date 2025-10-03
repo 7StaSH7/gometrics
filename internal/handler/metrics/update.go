@@ -41,7 +41,7 @@ func (h *metricsHandler) Update(c *gin.Context) {
 			return
 		}
 
-		if err := h.metricsService.UpdateGauge(nil, input.Name, parsedValue); err != nil {
+		if err := h.metricsService.UpdateGauge(c.Request.Context(), nil, input.Name, parsedValue); err != nil {
 			c.AbortWithStatus(http.StatusBadRequest)
 			return
 		}
@@ -54,7 +54,7 @@ func (h *metricsHandler) Update(c *gin.Context) {
 			return
 		}
 
-		if err := h.metricsService.UpdateCounter(nil, input.Name, parsedValue); err != nil {
+		if err := h.metricsService.UpdateCounter(c.Request.Context(), nil, input.Name, parsedValue); err != nil {
 			c.AbortWithStatus(http.StatusBadRequest)
 			return
 		}
@@ -91,7 +91,7 @@ func (h *metricsHandler) UpdateJSON(c *gin.Context) {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "'Delta' is missing"})
 				return
 			}
-			if err := h.metricsService.UpdateCounter(nil, body.ID, *body.Delta); err != nil {
+			if err := h.metricsService.UpdateCounter(c.Request.Context(), nil, body.ID, *body.Delta); err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 				return
 			}
@@ -103,7 +103,7 @@ func (h *metricsHandler) UpdateJSON(c *gin.Context) {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "'Value' is missing"})
 				return
 			}
-			if err := h.metricsService.UpdateGauge(nil, body.ID, *body.Value); err != nil {
+			if err := h.metricsService.UpdateGauge(c.Request.Context(), nil, body.ID, *body.Value); err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 				return
 			}
@@ -135,25 +135,22 @@ func (h *metricsHandler) Updates(c *gin.Context) {
 
 		switch m.MType {
 		case model.Counter:
-			{
-				if m.Delta == nil {
-					logger.Log.Debug("'Delta' field is missing")
-					c.JSON(http.StatusBadRequest, gin.H{"error": "'Delta' is missing"})
-					return
-				}
+			if m.Delta == nil {
+				logger.Log.Debug("'Delta' field is missing")
+				c.JSON(http.StatusBadRequest, gin.H{"error": "'Delta' is missing"})
+				return
 			}
+
 		case model.Gauge:
-			{
-				if m.Value == nil {
-					logger.Log.Debug("'Value' field is missing", zap.String("field", m.ID))
-					c.JSON(http.StatusBadRequest, gin.H{"error": "'Value' is missing"})
-					return
-				}
+			if m.Value == nil {
+				logger.Log.Debug("'Value' field is missing", zap.String("field", m.ID))
+				c.JSON(http.StatusBadRequest, gin.H{"error": "'Value' is missing"})
+				return
 			}
 		}
 	}
 
-	if err := h.metricsService.Updates(metrics); err != nil {
+	if err := h.metricsService.Updates(c.Request.Context(), metrics); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
 		return
 	}

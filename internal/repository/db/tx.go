@@ -8,21 +8,21 @@ import (
 	"go.uber.org/zap"
 )
 
-func (rep *databaseRepository) StartTransaction() (pgx.Tx, error) {
-	return rep.db.Begin(context.Background())
+func (rep *databaseRepository) StartTransaction(ctx context.Context) (pgx.Tx, error) {
+	return rep.db.Begin(ctx)
 }
 
-func (rep *databaseRepository) IntrospectTransaction(tx pgx.Tx, err error) {
-	ctx := context.Background()
-	var e error
-	if err != nil {
-		logger.Log.Error("rollback", zap.Error(err))
-		e = tx.Rollback(ctx)
-	} else {
-		e = tx.Commit(ctx)
-	}
+func (rep *databaseRepository) IntrospectTransaction(ctx context.Context, tx pgx.Tx, err error) {
+	if tx != nil {
+		var e error
+		if err != nil {
+			e = tx.Rollback(ctx)
+		} else {
+			e = tx.Commit(ctx)
+		}
 
-	if e != nil {
-		logger.Log.Panic("ERROR", zap.Error(e))
+		if e != nil {
+			logger.Log.Panic("ERROR", zap.Error(e))
+		}
 	}
 }

@@ -10,13 +10,13 @@ import (
 )
 
 type MetricsService interface {
-	UpdateCounter(tx pgx.Tx, name string, value int64) error
-	UpdateGauge(tx pgx.Tx, name string, value float64) error
+	UpdateCounter(ctx context.Context, tx pgx.Tx, name string, value int64) error
+	UpdateGauge(ctx context.Context, tx pgx.Tx, name string, value float64) error
 	GetCounter(name string) (int64, error)
 	GetGauge(name string) (float64, error)
 	GetMany() map[string]string
 	Store(ctx context.Context, restore bool, interval int) error
-	Updates([]model.Metrics) error
+	Updates(ctx context.Context, metrics []model.Metrics) error
 }
 
 type metricsService struct {

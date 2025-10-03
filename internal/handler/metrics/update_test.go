@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -17,20 +18,20 @@ type MockMetricsService struct {
 	mock.Mock
 }
 
-func (m *MockMetricsService) UpdateCounter(tx pgx.Tx, name string, value int64) error {
-	args := m.Called(tx, name, value)
+func (m *MockMetricsService) UpdateCounter(ctx context.Context, tx pgx.Tx, name string, value int64) error {
+	args := m.Called(ctx, tx, name, value)
 
 	return args.Error(0)
 }
 
-func (m *MockMetricsService) UpdateGauge(tx pgx.Tx, name string, value float64) error {
-	args := m.Called(tx, name, value)
+func (m *MockMetricsService) UpdateGauge(ctx context.Context, tx pgx.Tx, name string, value float64) error {
+	args := m.Called(ctx, tx, name, value)
 
 	return args.Error(0)
 }
 
-func (m *MockMetricsService) Updates(metrics []model.Metrics) error {
-	args := m.Called(metrics)
+func (m *MockMetricsService) Updates(ctx context.Context, metrics []model.Metrics) error {
+	args := m.Called(ctx, metrics)
 
 	return args.Error(0)
 }

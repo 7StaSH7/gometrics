@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
@@ -30,13 +31,13 @@ func (c *PostgresErrorClassifier) Classify(err error) PGErrorClassification {
 	}
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
-		return СlassifyPgError(pgErr)
+		return ClassifyPgError(pgErr)
 	}
 
 	return NonRetriable
 }
 
-func СlassifyPgError(pgErr *pgconn.PgError) PGErrorClassification {
+func ClassifyPgError(pgErr *pgconn.PgError) PGErrorClassification {
 	switch pgErr.Code {
 	case pgerrcode.ConnectionException,
 		pgerrcode.ConnectionDoesNotExist,
@@ -81,31 +82,50 @@ type SQL struct {
 	Args  []any
 }
 
-func ExecuteWithRetry(pool *pgxpool.Pool, tx pgx.Tx, sql SQL) error {
+func ExecuteWithRetry(ctx context.Context, pool *pgxpool.Pool, tx pgx.Tx, sql SQL) error {
 	const maxRetries = 3
 	var lastErr error
 
 	classifier := NewPostgresErrorClassifier()
 
-	for range maxRetries {
-		var err error
-		ctx := context.Background()
+	var err error
+	if pool != nil {
+		_, err = pool.Exec(ctx, sql.Query, sql.Args...)
+	} else if tx != nil {
+		_, err = tx.Exec(ctx, sql.Query, sql.Args...)
+	}
+	if err == nil {
+		return nil
+	}
+
+	lastErr = err
+	classification := classifier.Classify(err)
+	if classification == NonRetriable {
+		return fmt.Errorf("error: %w", err)
+	}
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		var delay time.Duration
+		switch attempt {
+		case 1:
+			delay = 1 * time.Second
+		case 2:
+			delay = 3 * time.Second
+		case 3:
+			delay = 5 * time.Second
+		}
+		time.Sleep(delay)
+
 		if pool != nil {
 			_, err = pool.Exec(ctx, sql.Query, sql.Args...)
-			if err == nil {
-				return nil
-			}
 		} else if tx != nil {
 			_, err = tx.Exec(ctx, sql.Query, sql.Args...)
-			if err == nil {
-				return nil
-			}
+		}
+		if err == nil {
+			return nil
 		}
 
-		classification := classifier.Classify(err)
-		if classification == NonRetriable {
-			return fmt.Errorf("error: %w", err)
-		}
+		lastErr = err
 	}
 
 	return fmt.Errorf("%d retries end with error: %w", maxRetries, lastErr)
