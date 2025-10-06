@@ -9,29 +9,38 @@ import (
 
 	"github.com/7StaSH7/gometrics/internal/agent"
 	"github.com/7StaSH7/gometrics/internal/config"
+	"github.com/7StaSH7/gometrics/internal/logger"
+	"go.uber.org/zap"
 )
 
 func main() {
-	aCfg := config.NewAgentConfig()
+	logger.Initialize("info")
 
-	a := agent.New(aCfg)
-	defer a.Close()
+	cfg := config.NewAgentConfig()
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	metricPoll := time.NewTicker(time.Duration(aCfg.PollInterval) * time.Second)
+	a := agent.New(ctx, cfg)
+	defer a.Close()
+
+	metricPoll := time.NewTicker(time.Duration(cfg.PollInterval) * time.Second)
 	defer metricPoll.Stop()
 
-	metricReport := time.NewTicker(time.Duration(aCfg.ReportInterval) * time.Second)
+	metricReport := time.NewTicker(time.Duration(cfg.ReportInterval) * time.Second)
 	defer metricReport.Stop()
+
+	logger.Log.Info("agent started", zap.Any("config", cfg))
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-metricReport.C:
-			a.SendMetrics()
+			if err := a.SendMetricsBatch(); err != nil {
+				logger.Log.Error("something went wrong", zap.Error(err))
+				return
+			}
 		case <-metricPoll.C:
 			a.GetMetric()
 		}

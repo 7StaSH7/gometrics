@@ -1,9 +1,13 @@
 package storage
 
-func (s *memStorageRepository) Add(name string, value int64) {
-	s.storage.Add(name, value)
+func (rep *memStorageRepository) Add(name string, value int64) error {
+	rep.storage.Add(name, value)
+
+	return nil
 }
 
-func (s *memStorageRepository) Replace(name string, value float64) {
-	s.storage.Replace(name, value)
+func (rep *memStorageRepository) Replace(name string, value float64) error {
+	rep.storage.Replace(name, value)
+
+	return nil
 }

@@ -10,6 +10,10 @@ import (
 	"syscall"
 
 	"github.com/7StaSH7/gometrics/internal/config"
+	dbconfig "github.com/7StaSH7/gometrics/internal/config/db"
+	databaserepository "github.com/7StaSH7/gometrics/internal/repository/db"
+
+	healthhandler "github.com/7StaSH7/gometrics/internal/handler/health"
 	metricshandler "github.com/7StaSH7/gometrics/internal/handler/metrics"
 	"github.com/7StaSH7/gometrics/internal/logger"
 	"github.com/7StaSH7/gometrics/internal/middleware"
@@ -27,8 +31,8 @@ func main() {
 	}
 }
 
-func initDeps() (*config.ServerConfig, *gin.Engine, metricsservice.MetricsService) {
-	cfg := config.NewServerConfig()
+func initDeps(ctx context.Context) (*config.ServerConfig, *gin.Engine, metricsservice.MetricsService) {
+	cfg, psqlCfg := config.NewServerConfig()
 
 	router := gin.New()
 
@@ -42,36 +46,44 @@ func initDeps() (*config.ServerConfig, *gin.Engine, metricsservice.MetricsServic
 
 	stor := storage.NewStorage(cfg)
 
+	psqlPool, err := dbconfig.NewPostgresDriver(ctx, psqlCfg)
+	if err != nil {
+		logger.Log.Error("psql connection error", zap.Error(err))
+	}
+
 	storRep := storagerepositsory.NewMemStorageRepository(stor)
+	dbRep := databaserepository.NewDatabaseRepository(psqlPool)
 
-	mSer := metricsservice.New(storRep)
+	mSer := metricsservice.New(storRep, dbRep)
 
-	mHan := metricshandler.NewHandler(mSer)
+	mHan := metricshandler.New(mSer)
+	hHan := healthhandler.New(psqlPool)
 
 	mHan.Register(router)
+	hHan.Register(router)
 
 	return cfg, router, mSer
 }
 
 func run() error {
-	cfg, router, ser := initDeps()
-
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
+
+	g, gCtx := errgroup.WithContext(ctx)
+
+	cfg, router, ser := initDeps(gCtx)
 
 	srv := &http.Server{
 		Addr:    cfg.Address,
 		Handler: router,
 		BaseContext: func(_ net.Listener) context.Context {
-			return ctx
+			return gCtx
 		},
 	}
 
-	g, gCtx := errgroup.WithContext(ctx)
-
 	if cfg.StoreInterval != 0 {
 		g.Go(func() error {
-			return ser.Store(ctx, cfg.Restore, cfg.StoreInterval)
+			return ser.Store(gCtx, cfg.Restore, cfg.StoreInterval)
 		})
 	}
 
@@ -88,7 +100,7 @@ func run() error {
 	})
 
 	if err := g.Wait(); err != nil {
-		fmt.Printf("exit reason: %s \n", err.Error())
+		logger.Log.Info("exit reason", zap.Error(err))
 	}
 
 	return nil

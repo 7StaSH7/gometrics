@@ -41,7 +41,7 @@ func (h *metricsHandler) Update(c *gin.Context) {
 			return
 		}
 
-		if err := h.metricsService.UpdateGauge(input.Name, parsedValue); err != nil {
+		if err := h.metricsService.UpdateGauge(c.Request.Context(), nil, input.Name, parsedValue); err != nil {
 			c.AbortWithStatus(http.StatusBadRequest)
 			return
 		}
@@ -54,7 +54,7 @@ func (h *metricsHandler) Update(c *gin.Context) {
 			return
 		}
 
-		if err := h.metricsService.UpdateCounter(input.Name, parsedValue); err != nil {
+		if err := h.metricsService.UpdateCounter(c.Request.Context(), nil, input.Name, parsedValue); err != nil {
 			c.AbortWithStatus(http.StatusBadRequest)
 			return
 		}
@@ -91,7 +91,7 @@ func (h *metricsHandler) UpdateJSON(c *gin.Context) {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "'Delta' is missing"})
 				return
 			}
-			if err := h.metricsService.UpdateCounter(body.ID, *body.Delta); err != nil {
+			if err := h.metricsService.UpdateCounter(c.Request.Context(), nil, body.ID, *body.Delta); err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 				return
 			}
@@ -103,12 +103,57 @@ func (h *metricsHandler) UpdateJSON(c *gin.Context) {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "'Value' is missing"})
 				return
 			}
-			if err := h.metricsService.UpdateGauge(body.ID, *body.Value); err != nil {
+			if err := h.metricsService.UpdateGauge(c.Request.Context(), nil, body.ID, *body.Value); err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 				return
 			}
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{})
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
+}
+
+func (h *metricsHandler) Updates(c *gin.Context) {
+	metrics := make([]model.Metrics, 0)
+
+	if err := c.ShouldBindJSON(&metrics); err != nil {
+		logger.Log.Debug("cannot decode request JSON body", zap.Error(err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	for _, m := range metrics {
+		if m.MType != model.Counter && m.MType != model.Gauge {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "bad type"})
+			return
+		}
+
+		if m.ID == "" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "bad id"})
+			return
+		}
+
+		switch m.MType {
+		case model.Counter:
+			if m.Delta == nil {
+				logger.Log.Debug("'Delta' field is missing")
+				c.JSON(http.StatusBadRequest, gin.H{"error": "'Delta' is missing"})
+				return
+			}
+
+		case model.Gauge:
+			if m.Value == nil {
+				logger.Log.Debug("'Value' field is missing", zap.String("field", m.ID))
+				c.JSON(http.StatusBadRequest, gin.H{"error": "'Value' is missing"})
+				return
+			}
+		}
+	}
+
+	if err := h.metricsService.Updates(c.Request.Context(), metrics); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
 }

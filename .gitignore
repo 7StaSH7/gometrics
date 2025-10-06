@@ -30,3 +30,4 @@ metricstest
 
 # Storage file
 store.json
+metrics.json
