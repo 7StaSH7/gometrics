@@ -66,7 +66,7 @@ func (h *metricsHandler) GetJSON(c *gin.Context) {
 	dec := json.NewDecoder(c.Request.Body)
 	if err := dec.Decode(&body); err != nil {
 		logger.Log.Debug("cannot decode request JSON body", zap.Error(err))
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err})
 		return
 	}
 

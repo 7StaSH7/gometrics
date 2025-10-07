@@ -26,7 +26,7 @@ func (h *healthHandler) Register(e *gin.Engine) {
 			return
 		}
 		if err := h.pool.Ping(c); err != nil {
-			c.JSON(500, gin.H{"error": err.Error()})
+			c.JSON(500, gin.H{"error": err})
 			return
 		}
 

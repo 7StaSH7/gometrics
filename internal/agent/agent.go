@@ -13,6 +13,7 @@ import (
 	"github.com/7StaSH7/gometrics/internal/config"
 	"github.com/7StaSH7/gometrics/internal/logger"
 	"github.com/7StaSH7/gometrics/internal/model"
+	"github.com/7StaSH7/gometrics/internal/utils"
 	"go.uber.org/zap"
 	"resty.dev/v3"
 )
@@ -58,6 +59,7 @@ var ms runtime.MemStats
 type Agent struct {
 	client  *resty.Client
 	baseURL string
+	hashKey string
 }
 
 type AgentInterface interface {
@@ -105,6 +107,7 @@ func New(ctx context.Context, cfg *config.AgentConfig) AgentInterface {
 	return &Agent{
 		client:  client,
 		baseURL: fmt.Sprintf("http://%s", cfg.Address),
+		hashKey: cfg.Key,
 	}
 }
 
@@ -229,7 +232,13 @@ func (a *Agent) sendOneMetric(mType, name string, value any) error {
 	url := fmt.Sprintf("%s/update/", a.baseURL)
 	req := a.client.NewRequest().
 		SetBody(body).
-		SetHeader("Content-Type", "application/json")
+		SetHeader("Content-Type", "application/json").
+		SetHeader("Accept-Encoding", "gzip")
+
+	if a.hashKey != "" {
+		hash := utils.GenerateSHA256(string(jsonData), a.hashKey)
+		req.SetHeader("HashSHA256", hash)
+	}
 
 	if _, err := req.Post(url); err != nil {
 		return err
@@ -250,6 +259,11 @@ func (a *Agent) sendBatchMetrics(metrics []model.Metrics) error {
 		SetBody(metrics).
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Accept-Encoding", "gzip")
+
+	if a.hashKey != "" {
+		hash := utils.GenerateSHA256(string(jsonData), a.hashKey)
+		req.SetHeader("HashSHA256", hash)
+	}
 
 	if _, err := req.Post(url); err != nil {
 		return err

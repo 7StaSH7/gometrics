@@ -56,7 +56,7 @@ func initDeps(ctx context.Context) (*config.ServerConfig, *gin.Engine, metricsse
 
 	mSer := metricsservice.New(storRep, dbRep)
 
-	mHan := metricshandler.New(mSer)
+	mHan := metricshandler.New(mSer, cfg.Key)
 	hHan := healthhandler.New(psqlPool)
 
 	mHan.Register(router)
