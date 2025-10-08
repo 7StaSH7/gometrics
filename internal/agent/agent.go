@@ -6,14 +6,16 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
-	"reflect"
 	"runtime"
+	"sync"
 	"time"
 
 	"github.com/7StaSH7/gometrics/internal/config"
 	"github.com/7StaSH7/gometrics/internal/logger"
 	"github.com/7StaSH7/gometrics/internal/model"
 	"github.com/7StaSH7/gometrics/internal/utils"
+	"github.com/shirou/gopsutil/v4/cpu"
+	"github.com/shirou/gopsutil/v4/mem"
 	"go.uber.org/zap"
 	"resty.dev/v3"
 )
@@ -21,39 +23,11 @@ import (
 type Gauge float64
 type Counter int64
 
-type Metric struct {
-	Alloc         Gauge
-	BuckHashSys   Gauge
-	Frees         Gauge
-	GCCPUFraction Gauge
-	GCSys         Gauge
-	HeapAlloc     Gauge
-	HeapIdle      Gauge
-	HeapInuse     Gauge
-	HeapObjects   Gauge
-	HeapReleased  Gauge
-	HeapSys       Gauge
-	LastGC        Gauge
-	Lookups       Gauge
-	MCacheInuse   Gauge
-	MCacheSys     Gauge
-	MSpanInuse    Gauge
-	MSpanSys      Gauge
-	Mallocs       Gauge
-	NextGC        Gauge
-	NumForcedGC   Gauge
-	NumGC         Gauge
-	OtherSys      Gauge
-	PauseTotalNs  Gauge
-	StackInuse    Gauge
-	StackSys      Gauge
-	Sys           Gauge
-	TotalAlloc    Gauge
-	RandomValue   Gauge
-	PollCount     Counter
-}
+type MetricsMap map[string]any
 
-var m Metric
+var metrics MetricsMap
+var mu sync.Mutex
+var pollCount int64
 var ms runtime.MemStats
 
 type Agent struct {
@@ -63,13 +37,15 @@ type Agent struct {
 }
 
 type AgentInterface interface {
-	GetMetric()
+	GetRuntimeMetrics() error
+	GetGopsutilMetrics() error
 	SendMetrics() error
 	SendMetricsBatch() error
 	Close() error
 }
 
 func New(ctx context.Context, cfg *config.AgentConfig) AgentInterface {
+	metrics = make(MetricsMap)
 	client := resty.New().
 		AddRetryConditions(
 			func(res *resty.Response, err error) bool {
@@ -85,6 +61,11 @@ func New(ctx context.Context, cfg *config.AgentConfig) AgentInterface {
 		SetContext(ctx).
 		SetRetryStrategy(
 			func(resp *resty.Response, _ error) (time.Duration, error) {
+				select {
+				case <-ctx.Done():
+					return 0, ctx.Err()
+				default:
+				}
 				var delay time.Duration
 				switch resp.Request.Attempt {
 				case 1:
@@ -112,20 +93,18 @@ func New(ctx context.Context, cfg *config.AgentConfig) AgentInterface {
 }
 
 func (a *Agent) SendMetrics() error {
-	v := reflect.ValueOf(&m)
-	v = v.Elem()
+	mu.Lock()
+	defer mu.Unlock()
 
-	for i := 0; i < v.NumField(); i++ {
-		f := v.Field(i)
-		switch f.Kind() {
-		case reflect.Float64:
-			if err := a.sendOneMetric(model.Gauge, v.Type().Field(i).Name, f.Float()); err != nil {
-				return fmt.Errorf("error sending gauge metric %s: %+v", v.Type().Field(i).Name, err)
+	for name, value := range metrics {
+		switch v := value.(type) {
+		case Gauge:
+			if err := a.sendOneMetric(model.Gauge, name, float64(v)); err != nil {
+				return fmt.Errorf("error sending gauge metric %s: %+v", name, err)
 			}
-
-		case reflect.Int64:
-			if err := a.sendOneMetric(model.Counter, v.Type().Field(i).Name, f.Int()); err != nil {
-				return fmt.Errorf("error sending counter metric %s: %+v", v.Type().Field(i).Name, err)
+		case Counter:
+			if err := a.sendOneMetric(model.Counter, name, int64(v)); err != nil {
+				return fmt.Errorf("error sending counter metric %s: %+v", name, err)
 			}
 		}
 	}
@@ -134,32 +113,31 @@ func (a *Agent) SendMetrics() error {
 }
 
 func (a *Agent) SendMetricsBatch() error {
-	v := reflect.ValueOf(&m)
-	v = v.Elem()
-	metrics := make([]model.Metrics, 0, v.NumField())
-	for i := 0; i < v.NumField(); i++ {
-		f := v.Field(i)
-		switch f.Kind() {
-		case reflect.Float64:
-			value := f.Float()
-			metrics = append(metrics, model.Metrics{
-				ID:    v.Type().Field(i).Name,
-				MType: model.Gauge,
-				Value: &value,
-			})
+	mu.Lock()
+	defer mu.Unlock()
 
-		case reflect.Int64:
-			delta := f.Int()
-			metrics = append(metrics, model.Metrics{
-				ID:    v.Type().Field(i).Name,
+	metricsBatch := make([]model.Metrics, 0, len(metrics))
+	for name, value := range metrics {
+		switch v := value.(type) {
+		case Gauge:
+			val := float64(v)
+			metricsBatch = append(metricsBatch, model.Metrics{
+				ID:    name,
+				MType: model.Gauge,
+				Value: &val,
+			})
+		case Counter:
+			delta := int64(v)
+			metricsBatch = append(metricsBatch, model.Metrics{
+				ID:    name,
 				MType: model.Counter,
 				Delta: &delta,
 			})
 		}
 	}
 
-	if len(metrics) > 0 {
-		if err := a.sendBatchMetrics(metrics); err != nil {
+	if len(metricsBatch) > 0 {
+		if err := a.sendBatchMetrics(metricsBatch); err != nil {
 			return fmt.Errorf("error sending metrics %+v", err)
 		}
 	}
@@ -167,37 +145,63 @@ func (a *Agent) SendMetricsBatch() error {
 	return nil
 }
 
-func (a *Agent) GetMetric() {
+func (a *Agent) GetRuntimeMetrics() error {
 	runtime.ReadMemStats(&ms)
-	m.Alloc = Gauge(ms.Alloc)
-	m.BuckHashSys = Gauge(ms.BuckHashSys)
-	m.Frees = Gauge(ms.Frees)
-	m.GCCPUFraction = Gauge(ms.GCCPUFraction)
-	m.GCSys = Gauge(ms.GCSys)
-	m.HeapAlloc = Gauge(ms.HeapAlloc)
-	m.HeapIdle = Gauge(ms.HeapIdle)
-	m.HeapInuse = Gauge(ms.HeapInuse)
-	m.HeapObjects = Gauge(ms.HeapObjects)
-	m.HeapReleased = Gauge(ms.HeapReleased)
-	m.HeapSys = Gauge(ms.HeapSys)
-	m.LastGC = Gauge(ms.LastGC)
-	m.Lookups = Gauge(ms.Lookups)
-	m.MCacheInuse = Gauge(ms.MCacheInuse)
-	m.MCacheSys = Gauge(ms.MCacheSys)
-	m.MSpanInuse = Gauge(ms.MSpanInuse)
-	m.MSpanSys = Gauge(ms.MSpanSys)
-	m.Mallocs = Gauge(ms.Mallocs)
-	m.NextGC = Gauge(ms.NextGC)
-	m.NumForcedGC = Gauge(ms.NumForcedGC)
-	m.NumGC = Gauge(ms.NumGC)
-	m.OtherSys = Gauge(ms.OtherSys)
-	m.PauseTotalNs = Gauge(ms.PauseTotalNs)
-	m.StackInuse = Gauge(ms.StackInuse)
-	m.StackSys = Gauge(ms.StackSys)
-	m.Sys = Gauge(ms.Sys)
-	m.TotalAlloc = Gauge(ms.TotalAlloc)
-	m.RandomValue = Gauge(rand.Float64())
-	m.PollCount++
+	mu.Lock()
+	defer mu.Unlock()
+	metrics["Alloc"] = Gauge(ms.Alloc)
+	metrics["BuckHashSys"] = Gauge(ms.BuckHashSys)
+	metrics["Frees"] = Gauge(ms.Frees)
+	metrics["GCCPUFraction"] = Gauge(ms.GCCPUFraction)
+	metrics["GCSys"] = Gauge(ms.GCSys)
+	metrics["HeapAlloc"] = Gauge(ms.HeapAlloc)
+	metrics["HeapIdle"] = Gauge(ms.HeapIdle)
+	metrics["HeapInuse"] = Gauge(ms.HeapInuse)
+	metrics["HeapObjects"] = Gauge(ms.HeapObjects)
+	metrics["HeapReleased"] = Gauge(ms.HeapReleased)
+	metrics["HeapSys"] = Gauge(ms.HeapSys)
+	metrics["LastGC"] = Gauge(ms.LastGC)
+	metrics["Lookups"] = Gauge(ms.Lookups)
+	metrics["MCacheInuse"] = Gauge(ms.MCacheInuse)
+	metrics["MCacheSys"] = Gauge(ms.MCacheSys)
+	metrics["MSpanInuse"] = Gauge(ms.MSpanInuse)
+	metrics["MSpanSys"] = Gauge(ms.MSpanSys)
+	metrics["Mallocs"] = Gauge(ms.Mallocs)
+	metrics["NextGC"] = Gauge(ms.NextGC)
+	metrics["NumForcedGC"] = Gauge(ms.NumForcedGC)
+	metrics["NumGC"] = Gauge(ms.NumGC)
+	metrics["OtherSys"] = Gauge(ms.OtherSys)
+	metrics["PauseTotalNs"] = Gauge(ms.PauseTotalNs)
+	metrics["StackInuse"] = Gauge(ms.StackInuse)
+	metrics["StackSys"] = Gauge(ms.StackSys)
+	metrics["Sys"] = Gauge(ms.Sys)
+	metrics["TotalAlloc"] = Gauge(ms.TotalAlloc)
+	metrics["RandomValue"] = Gauge(rand.Float64())
+	pollCount++
+	metrics["PollCount"] = Counter(pollCount)
+
+	return nil
+}
+
+func (a *Agent) GetGopsutilMetrics() error {
+	v, err := mem.VirtualMemory()
+	if err != nil {
+		return err
+	}
+	c, err := cpu.Percent(0, true)
+	if err != nil {
+		return err
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	metrics["TotalMemory"] = Gauge(v.Total)
+	metrics["FreeMemory"] = Gauge(v.Free)
+	for i, cpuUtil := range c {
+		metrics[fmt.Sprintf("CPUutilization%d", i)] = Gauge(cpuUtil)
+	}
+
+	return nil
 }
 
 func (a *Agent) Close() error {
