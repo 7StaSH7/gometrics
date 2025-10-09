@@ -17,6 +17,7 @@ import (
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/mem"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	"resty.dev/v3"
 )
 
@@ -25,15 +26,18 @@ type Counter int64
 
 type MetricsMap map[string]any
 
-var metrics MetricsMap
-var mu sync.Mutex
-var pollCount int64
-var ms runtime.MemStats
-
 type Agent struct {
 	client  *resty.Client
 	baseURL string
-	hashKey string
+
+	ctx context.Context
+	cfg *config.AgentConfig
+	g   *errgroup.Group
+
+	metrics   MetricsMap
+	mu        sync.Mutex
+	pollCount int64
+	ms        runtime.MemStats
 }
 
 type AgentInterface interface {
@@ -42,10 +46,10 @@ type AgentInterface interface {
 	SendMetrics() error
 	SendMetricsBatch() error
 	Close() error
+	Start(chan func() error)
 }
 
-func New(ctx context.Context, cfg *config.AgentConfig) AgentInterface {
-	metrics = make(MetricsMap)
+func New(ctx context.Context, group *errgroup.Group, cfg *config.AgentConfig) AgentInterface {
 	client := resty.New().
 		AddRetryConditions(
 			func(res *resty.Response, err error) bool {
@@ -88,15 +92,19 @@ func New(ctx context.Context, cfg *config.AgentConfig) AgentInterface {
 	return &Agent{
 		client:  client,
 		baseURL: fmt.Sprintf("http://%s", cfg.Address),
-		hashKey: cfg.Key,
+		cfg:     cfg,
+
+		metrics: make(MetricsMap),
+		ctx:     ctx,
+		g:       group,
 	}
 }
 
 func (a *Agent) SendMetrics() error {
-	mu.Lock()
-	defer mu.Unlock()
+	a.mu.Lock()
+	defer a.mu.Unlock()
 
-	for name, value := range metrics {
+	for name, value := range a.metrics {
 		switch v := value.(type) {
 		case Gauge:
 			if err := a.sendOneMetric(model.Gauge, name, float64(v)); err != nil {
@@ -113,11 +121,11 @@ func (a *Agent) SendMetrics() error {
 }
 
 func (a *Agent) SendMetricsBatch() error {
-	mu.Lock()
-	defer mu.Unlock()
+	a.mu.Lock()
+	defer a.mu.Unlock()
 
-	metricsBatch := make([]model.Metrics, 0, len(metrics))
-	for name, value := range metrics {
+	metricsBatch := make([]model.Metrics, 0, len(a.metrics))
+	for name, value := range a.metrics {
 		switch v := value.(type) {
 		case Gauge:
 			val := float64(v)
@@ -146,39 +154,39 @@ func (a *Agent) SendMetricsBatch() error {
 }
 
 func (a *Agent) GetRuntimeMetrics() error {
-	runtime.ReadMemStats(&ms)
-	mu.Lock()
-	defer mu.Unlock()
-	metrics["Alloc"] = Gauge(ms.Alloc)
-	metrics["BuckHashSys"] = Gauge(ms.BuckHashSys)
-	metrics["Frees"] = Gauge(ms.Frees)
-	metrics["GCCPUFraction"] = Gauge(ms.GCCPUFraction)
-	metrics["GCSys"] = Gauge(ms.GCSys)
-	metrics["HeapAlloc"] = Gauge(ms.HeapAlloc)
-	metrics["HeapIdle"] = Gauge(ms.HeapIdle)
-	metrics["HeapInuse"] = Gauge(ms.HeapInuse)
-	metrics["HeapObjects"] = Gauge(ms.HeapObjects)
-	metrics["HeapReleased"] = Gauge(ms.HeapReleased)
-	metrics["HeapSys"] = Gauge(ms.HeapSys)
-	metrics["LastGC"] = Gauge(ms.LastGC)
-	metrics["Lookups"] = Gauge(ms.Lookups)
-	metrics["MCacheInuse"] = Gauge(ms.MCacheInuse)
-	metrics["MCacheSys"] = Gauge(ms.MCacheSys)
-	metrics["MSpanInuse"] = Gauge(ms.MSpanInuse)
-	metrics["MSpanSys"] = Gauge(ms.MSpanSys)
-	metrics["Mallocs"] = Gauge(ms.Mallocs)
-	metrics["NextGC"] = Gauge(ms.NextGC)
-	metrics["NumForcedGC"] = Gauge(ms.NumForcedGC)
-	metrics["NumGC"] = Gauge(ms.NumGC)
-	metrics["OtherSys"] = Gauge(ms.OtherSys)
-	metrics["PauseTotalNs"] = Gauge(ms.PauseTotalNs)
-	metrics["StackInuse"] = Gauge(ms.StackInuse)
-	metrics["StackSys"] = Gauge(ms.StackSys)
-	metrics["Sys"] = Gauge(ms.Sys)
-	metrics["TotalAlloc"] = Gauge(ms.TotalAlloc)
-	metrics["RandomValue"] = Gauge(rand.Float64())
-	pollCount++
-	metrics["PollCount"] = Counter(pollCount)
+	runtime.ReadMemStats(&a.ms)
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.metrics["Alloc"] = Gauge(a.ms.Alloc)
+	a.metrics["BuckHashSys"] = Gauge(a.ms.BuckHashSys)
+	a.metrics["Frees"] = Gauge(a.ms.Frees)
+	a.metrics["GCCPUFraction"] = Gauge(a.ms.GCCPUFraction)
+	a.metrics["GCSys"] = Gauge(a.ms.GCSys)
+	a.metrics["HeapAlloc"] = Gauge(a.ms.HeapAlloc)
+	a.metrics["HeapIdle"] = Gauge(a.ms.HeapIdle)
+	a.metrics["HeapInuse"] = Gauge(a.ms.HeapInuse)
+	a.metrics["HeapObjects"] = Gauge(a.ms.HeapObjects)
+	a.metrics["HeapReleased"] = Gauge(a.ms.HeapReleased)
+	a.metrics["HeapSys"] = Gauge(a.ms.HeapSys)
+	a.metrics["LastGC"] = Gauge(a.ms.LastGC)
+	a.metrics["Lookups"] = Gauge(a.ms.Lookups)
+	a.metrics["MCacheInuse"] = Gauge(a.ms.MCacheInuse)
+	a.metrics["MCacheSys"] = Gauge(a.ms.MCacheSys)
+	a.metrics["MSpanInuse"] = Gauge(a.ms.MSpanInuse)
+	a.metrics["MSpanSys"] = Gauge(a.ms.MSpanSys)
+	a.metrics["Mallocs"] = Gauge(a.ms.Mallocs)
+	a.metrics["NextGC"] = Gauge(a.ms.NextGC)
+	a.metrics["NumForcedGC"] = Gauge(a.ms.NumForcedGC)
+	a.metrics["NumGC"] = Gauge(a.ms.NumGC)
+	a.metrics["OtherSys"] = Gauge(a.ms.OtherSys)
+	a.metrics["PauseTotalNs"] = Gauge(a.ms.PauseTotalNs)
+	a.metrics["StackInuse"] = Gauge(a.ms.StackInuse)
+	a.metrics["StackSys"] = Gauge(a.ms.StackSys)
+	a.metrics["Sys"] = Gauge(a.ms.Sys)
+	a.metrics["TotalAlloc"] = Gauge(a.ms.TotalAlloc)
+	a.metrics["RandomValue"] = Gauge(rand.Float64())
+	a.pollCount++
+	a.metrics["PollCount"] = Counter(a.pollCount)
 
 	return nil
 }
@@ -193,15 +201,53 @@ func (a *Agent) GetGopsutilMetrics() error {
 		return err
 	}
 
-	mu.Lock()
-	defer mu.Unlock()
-	metrics["TotalMemory"] = Gauge(v.Total)
-	metrics["FreeMemory"] = Gauge(v.Free)
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.metrics["TotalMemory"] = Gauge(v.Total)
+	a.metrics["FreeMemory"] = Gauge(v.Free)
 	for i, cpuUtil := range c {
-		metrics[fmt.Sprintf("CPUutilization%d", i)] = Gauge(cpuUtil)
+		a.metrics[fmt.Sprintf("CPUutilization%d", i)] = Gauge(cpuUtil)
 	}
 
 	return nil
+}
+
+func (a *Agent) Start(sendJobs chan func() error) {
+	a.g.Go(func() error {
+		t := time.NewTicker(time.Duration(a.cfg.PollInterval) * time.Second)
+		defer t.Stop()
+
+		for {
+			select {
+			case <-a.ctx.Done():
+				return a.ctx.Err()
+			case <-t.C:
+				if err := a.GetGopsutilMetrics(); err != nil {
+					logger.Log.Error("get gopsutil metrics error", zap.Error(err))
+				}
+				if err := a.GetRuntimeMetrics(); err != nil {
+					logger.Log.Error("get runtime metrics error", zap.Error(err))
+				}
+			}
+		}
+	})
+
+	a.g.Go(func() error {
+		ticker := time.NewTicker(time.Duration(a.cfg.ReportInterval) * time.Second)
+		defer ticker.Stop()
+		defer close(sendJobs)
+
+		for {
+			select {
+			case <-a.ctx.Done():
+				return a.ctx.Err()
+			case <-ticker.C:
+				sendJobs <- func() error {
+					return a.SendMetricsBatch()
+				}
+			}
+		}
+	})
 }
 
 func (a *Agent) Close() error {
@@ -239,8 +285,8 @@ func (a *Agent) sendOneMetric(mType, name string, value any) error {
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Accept-Encoding", "gzip")
 
-	if a.hashKey != "" {
-		hash := utils.GenerateSHA256(string(jsonData), a.hashKey)
+	if a.cfg.Key != "" {
+		hash := utils.GenerateSHA256(string(jsonData), a.cfg.Key)
 		req.SetHeader("HashSHA256", hash)
 	}
 
@@ -264,8 +310,8 @@ func (a *Agent) sendBatchMetrics(metrics []model.Metrics) error {
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Accept-Encoding", "gzip")
 
-	if a.hashKey != "" {
-		hash := utils.GenerateSHA256(string(jsonData), a.hashKey)
+	if a.cfg.Key != "" {
+		hash := utils.GenerateSHA256(string(jsonData), a.cfg.Key)
 		req.SetHeader("HashSHA256", hash)
 	}
 
