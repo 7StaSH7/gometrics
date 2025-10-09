@@ -5,12 +5,12 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/7StaSH7/gometrics/internal/agent"
 	"github.com/7StaSH7/gometrics/internal/config"
 	"github.com/7StaSH7/gometrics/internal/logger"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 func main() {
@@ -21,28 +21,43 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	a := agent.New(ctx, cfg)
+	g, gCtx := errgroup.WithContext(ctx)
+
+	a := agent.New(gCtx, g, cfg)
 	defer a.Close()
-
-	metricPoll := time.NewTicker(time.Duration(cfg.PollInterval) * time.Second)
-	defer metricPoll.Stop()
-
-	metricReport := time.NewTicker(time.Duration(cfg.ReportInterval) * time.Second)
-	defer metricReport.Stop()
 
 	logger.Log.Info("agent started", zap.Any("config", cfg))
 
+	sendJobs := make(chan func() error, cfg.Limit)
+
+	a.Start(sendJobs)
+
+	for w := 1; w <= cfg.Limit; w++ {
+		g.Go(func() error {
+			worker(gCtx, w, sendJobs)
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		logger.Log.Error("something went wrong", zap.Error(err))
+		panic(err)
+	}
+}
+
+func worker(ctx context.Context, id int, jobs <-chan func() error) {
+	logger.Log.Info("worker started", zap.Int("id", id))
 	for {
 		select {
-		case <-ctx.Done():
-			return
-		case <-metricReport.C:
-			if err := a.SendMetricsBatch(); err != nil {
-				logger.Log.Error("something went wrong", zap.Error(err))
+		case j, ok := <-jobs:
+			if !ok {
 				return
 			}
-		case <-metricPoll.C:
-			a.GetMetric()
+			if err := j(); err != nil {
+				logger.Log.Error("error in job", zap.Error(err))
+			}
+		case <-ctx.Done():
+			return
 		}
 	}
 }

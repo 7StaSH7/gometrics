@@ -7,6 +7,7 @@ import (
 
 type metricsHandler struct {
 	metricsService metrics.MetricsService
+	hashKey        string
 }
 
 type MetricsHandler interface {
@@ -22,9 +23,10 @@ type MetricsHandler interface {
 	GetMany(*gin.Context)
 }
 
-func New(s metrics.MetricsService) MetricsHandler {
+func New(s metrics.MetricsService, key string) MetricsHandler {
 	return &metricsHandler{
 		metricsService: s,
+		hashKey:        key,
 	}
 }
 

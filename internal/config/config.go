@@ -14,6 +14,7 @@ type ServerConfig struct {
 	StoreInterval int    `env:"STORE_INTERVAL"`
 	StoreFilePath string `env:"FILE_STORAGE_PATH"`
 	Restore       bool   `env:"RESTORE"`
+	Key           string `env:"KEY"`
 }
 
 func NewServerConfig() (*ServerConfig, *db.PostgresConfig) {
@@ -25,6 +26,7 @@ func NewServerConfig() (*ServerConfig, *db.PostgresConfig) {
 	flag.IntVar(&cfg.StoreInterval, "i", 300, "interval to store metrics to file")
 	flag.StringVar(&cfg.StoreFilePath, "f", "metrics.json", "path to json file to store metrics")
 	flag.BoolVar(&cfg.Restore, "r", false, "if need to restore from file first")
+	flag.StringVar(&cfg.Key, "k", "", "key to calculate auth hash")
 
 	flag.StringVar(&psqlCfg.URL, "d", "postgres://postgres:postgres@localhost:5432/metrics?search_path=public&sslmode=disable", "url for postgres db connection")
 

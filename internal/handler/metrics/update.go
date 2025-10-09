@@ -1,11 +1,13 @@
 package metrics
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 
 	"github.com/7StaSH7/gometrics/internal/logger"
 	"github.com/7StaSH7/gometrics/internal/model"
+	"github.com/7StaSH7/gometrics/internal/utils"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -64,14 +66,36 @@ func (h *metricsHandler) Update(c *gin.Context) {
 }
 
 func (h *metricsHandler) UpdateJSON(c *gin.Context) {
+	var hash string
+	if h.hashKey != "" {
+		hash = c.GetHeader("HashSHA256")
+	}
+
 	var body model.Metrics
 	if err := c.ShouldBindJSON(&body); err != nil {
 		logger.Log.Debug("cannot decode request JSON body", zap.Error(err))
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err})
 		return
 	}
 
 	logger.Log.Debug("decoded JSON body", zap.Any("body", body))
+
+	var expectedHash string
+	if h.hashKey != "" && hash != "" {
+		jsonData, err := json.Marshal(body)
+		if err != nil {
+			logger.Log.Debug("cannot marshal JSON body", zap.Error(err))
+			c.JSON(http.StatusBadRequest, gin.H{"error": err})
+			return
+		}
+
+		expectedHash = utils.GenerateSHA256(string(jsonData), h.hashKey)
+
+		if !utils.VerifySHA256(expectedHash, hash) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
+			return
+		}
+	}
 
 	if body.MType != model.Counter && body.MType != model.Gauge {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad type"})
@@ -92,7 +116,7 @@ func (h *metricsHandler) UpdateJSON(c *gin.Context) {
 				return
 			}
 			if err := h.metricsService.UpdateCounter(c.Request.Context(), nil, body.ID, *body.Delta); err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				c.JSON(http.StatusBadRequest, gin.H{"error": err})
 				return
 			}
 		}
@@ -104,22 +128,47 @@ func (h *metricsHandler) UpdateJSON(c *gin.Context) {
 				return
 			}
 			if err := h.metricsService.UpdateGauge(c.Request.Context(), nil, body.ID, *body.Value); err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				c.JSON(http.StatusBadRequest, gin.H{"error": err})
 				return
 			}
 		}
+	}
+
+	if h.hashKey != "" && expectedHash != "" {
+		c.Header("HashSHA256", expectedHash)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"status": "success"})
 }
 
 func (h *metricsHandler) Updates(c *gin.Context) {
-	metrics := make([]model.Metrics, 0)
+	var hash string
+	if h.hashKey != "" {
+		hash = c.GetHeader("HashSHA256")
+	}
 
+	metrics := make([]model.Metrics, 0)
 	if err := c.ShouldBindJSON(&metrics); err != nil {
 		logger.Log.Debug("cannot decode request JSON body", zap.Error(err))
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err})
 		return
+	}
+
+	var expectedHash string
+	if h.hashKey != "" && hash != "" {
+		jsonData, err := json.Marshal(metrics)
+		if err != nil {
+			logger.Log.Debug("cannot marshal JSON body", zap.Error(err))
+			c.JSON(http.StatusBadRequest, gin.H{"error": err})
+			return
+		}
+
+		expectedHash = utils.GenerateSHA256(string(jsonData), h.hashKey)
+
+		if !utils.VerifySHA256(expectedHash, hash) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
+			return
+		}
 	}
 
 	for _, m := range metrics {
@@ -153,6 +202,10 @@ func (h *metricsHandler) Updates(c *gin.Context) {
 	if err := h.metricsService.Updates(c.Request.Context(), metrics); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
 		return
+	}
+
+	if h.hashKey != "" && expectedHash != "" {
+		c.Header("HashSHA256", expectedHash)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"status": "success"})
