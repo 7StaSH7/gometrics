@@ -57,11 +57,11 @@ func initDeps(ctx context.Context) (*config.ServerConfig, *gin.Engine, metricsse
 
 	auditSubject := audit.NewAuditSubject()
 
-	if cfg.AuditFile != "" && cfg.AuditUrl != "" {
+	if cfg.AuditFile != "" && cfg.AuditURL != "" {
 		fileObserver := audit.NewFileAuditObserver(cfg.AuditFile)
 		auditSubject.Attach(fileObserver)
 
-		httpObserver := audit.NewHTTPAuditObserver(cfg.AuditUrl)
+		httpObserver := audit.NewHTTPAuditObserver(cfg.AuditURL)
 		auditSubject.Attach(httpObserver)
 	}
 
