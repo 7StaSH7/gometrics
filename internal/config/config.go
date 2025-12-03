@@ -15,6 +15,8 @@ type ServerConfig struct {
 	StoreFilePath string `env:"FILE_STORAGE_PATH"`
 	Restore       bool   `env:"RESTORE"`
 	Key           string `env:"KEY"`
+	AuditFile     string `env:"AUDIT_FILE"`
+	AuditUrl      string `env:"AUDIT_URL"`
 }
 
 func NewServerConfig() (*ServerConfig, *db.PostgresConfig) {
@@ -27,6 +29,8 @@ func NewServerConfig() (*ServerConfig, *db.PostgresConfig) {
 	flag.StringVar(&cfg.StoreFilePath, "f", "metrics.json", "path to json file to store metrics")
 	flag.BoolVar(&cfg.Restore, "r", false, "if need to restore from file first")
 	flag.StringVar(&cfg.Key, "k", "", "key to calculate auth hash")
+	flag.StringVar(&cfg.AuditFile, "audit-file", "", "filepath to store audit events")
+	flag.StringVar(&cfg.AuditUrl, "audit-url", "", "url to send audit events")
 
 	flag.StringVar(&psqlCfg.URL, "d", "postgres://postgres:postgres@localhost:5432/metrics?search_path=public&sslmode=disable", "url for postgres db connection")
 

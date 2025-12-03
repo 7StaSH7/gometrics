@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"github.com/7StaSH7/gometrics/internal/audit"
 	"github.com/7StaSH7/gometrics/internal/service/metrics"
 	"github.com/gin-gonic/gin"
 )
@@ -8,6 +9,7 @@ import (
 type metricsHandler struct {
 	metricsService metrics.MetricsService
 	hashKey        string
+	audit          *audit.AuditSubject
 }
 
 type MetricsHandler interface {
@@ -23,10 +25,11 @@ type MetricsHandler interface {
 	GetMany(*gin.Context)
 }
 
-func New(s metrics.MetricsService, key string) MetricsHandler {
+func New(s metrics.MetricsService, key string, asub *audit.AuditSubject) MetricsHandler {
 	return &metricsHandler{
 		metricsService: s,
 		hashKey:        key,
+		audit:          asub,
 	}
 }
 

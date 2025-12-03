@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/7StaSH7/gometrics/internal/audit"
 	"github.com/7StaSH7/gometrics/internal/config"
 	dbconfig "github.com/7StaSH7/gometrics/internal/config/db"
 	databaserepository "github.com/7StaSH7/gometrics/internal/repository/db"
@@ -54,9 +55,19 @@ func initDeps(ctx context.Context) (*config.ServerConfig, *gin.Engine, metricsse
 	storRep := storagerepositsory.NewMemStorageRepository(stor)
 	dbRep := databaserepository.NewDatabaseRepository(psqlPool)
 
+	auditSubject := audit.NewAuditSubject()
+
+	if cfg.AuditFile != "" && cfg.AuditUrl != "" {
+		fileObserver := audit.NewFileAuditObserver(cfg.AuditFile)
+		auditSubject.Attach(fileObserver)
+
+		httpObserver := audit.NewHTTPAuditObserver(cfg.AuditUrl)
+		auditSubject.Attach(httpObserver)
+	}
+
 	mSer := metricsservice.New(storRep, dbRep)
 
-	mHan := metricshandler.New(mSer, cfg.Key)
+	mHan := metricshandler.New(mSer, cfg.Key, auditSubject)
 	hHan := healthhandler.New(psqlPool)
 
 	mHan.Register(router)
