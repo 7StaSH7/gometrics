@@ -12,19 +12,25 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// PGErrorClassification represents the classification of PostgreSQL errors.
 type PGErrorClassification int
 
 const (
+	// NonRetriable indicates errors that should not be retried.
 	NonRetriable PGErrorClassification = iota
+	// Retriable indicates errors that can be retried.
 	Retriable
 )
 
+// PostgresErrorClassifier classifies PostgreSQL errors.
 type PostgresErrorClassifier struct{}
 
+// NewPostgresErrorClassifier creates a new PostgresErrorClassifier.
 func NewPostgresErrorClassifier() *PostgresErrorClassifier {
 	return &PostgresErrorClassifier{}
 }
 
+// Classify determines if the error is retriable or not.
 func (c *PostgresErrorClassifier) Classify(err error) PGErrorClassification {
 	if err == nil {
 		return NonRetriable
@@ -37,6 +43,7 @@ func (c *PostgresErrorClassifier) Classify(err error) PGErrorClassification {
 	return NonRetriable
 }
 
+// ClassifyPgError classifies a PostgreSQL error based on its code.
 func ClassifyPgError(pgErr *pgconn.PgError) PGErrorClassification {
 	switch pgErr.Code {
 	case pgerrcode.ConnectionException,
@@ -77,11 +84,13 @@ func ClassifyPgError(pgErr *pgconn.PgError) PGErrorClassification {
 	return NonRetriable
 }
 
+// SQL represents a SQL query with arguments.
 type SQL struct {
 	Query string
 	Args  []any
 }
 
+// ExecuteWithRetry executes a SQL query with retry logic for retriable errors.
 func ExecuteWithRetry(ctx context.Context, pool *pgxpool.Pool, tx pgx.Tx, sql SQL) error {
 	const maxRetries = 3
 	var lastErr error

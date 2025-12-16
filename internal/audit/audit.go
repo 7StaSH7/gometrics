@@ -13,26 +13,31 @@ import (
 	"go.uber.org/zap"
 )
 
+// AuditEvent represents an audit event with timestamp, metrics, and IP address.
 type AuditEvent struct {
 	Timestamp int64    `json:"ts"`
 	Metrics   []string `json:"metrics"`
 	IPAddress string   `json:"ip_address"`
 }
 
+// AuditObserver defines the interface for audit observers.
 type AuditObserver interface {
 	Notify(ctx context.Context, event AuditEvent) error
 }
 
+// FileAuditObserver implements AuditObserver for file-based logging.
 type FileAuditObserver struct {
 	FilePath string
 }
 
+// NewFileAuditObserver creates a new FileAuditObserver.
 func NewFileAuditObserver(filePath string) *FileAuditObserver {
 	return &FileAuditObserver{
 		FilePath: filePath,
 	}
 }
 
+// Notify writes the audit event to the file.
 func (f *FileAuditObserver) Notify(ctx context.Context, event AuditEvent) error {
 	file, err := os.OpenFile(f.FilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -53,16 +58,19 @@ func (f *FileAuditObserver) Notify(ctx context.Context, event AuditEvent) error 
 	return nil
 }
 
+// HTTPAuditObserver implements AuditObserver for HTTP-based logging.
 type HTTPAuditObserver struct {
 	URL string
 }
 
+// NewHTTPAuditObserver creates a new HTTPAuditObserver.
 func NewHTTPAuditObserver(url string) *HTTPAuditObserver {
 	return &HTTPAuditObserver{
 		URL: url,
 	}
 }
 
+// Notify sends the audit event via HTTP POST.
 func (h *HTTPAuditObserver) Notify(ctx context.Context, event AuditEvent) error {
 	data, err := json.Marshal(event)
 	if err != nil {
@@ -90,20 +98,24 @@ func (h *HTTPAuditObserver) Notify(ctx context.Context, event AuditEvent) error 
 	return nil
 }
 
+// AuditSubject manages a list of audit observers.
 type AuditSubject struct {
 	observers []AuditObserver
 }
 
+// NewAuditSubject creates a new AuditSubject.
 func NewAuditSubject() *AuditSubject {
 	return &AuditSubject{
 		observers: make([]AuditObserver, 0),
 	}
 }
 
+// Attach adds an observer to the subject.
 func (a *AuditSubject) Attach(observer AuditObserver) {
 	a.observers = append(a.observers, observer)
 }
 
+// NotifyAll notifies all attached observers.
 func (a *AuditSubject) NotifyAll(ctx context.Context, event AuditEvent) {
 	for _, observer := range a.observers {
 		if err := observer.Notify(ctx, event); err != nil {
@@ -112,6 +124,7 @@ func (a *AuditSubject) NotifyAll(ctx context.Context, event AuditEvent) {
 	}
 }
 
+// CreateAuditEvent creates a new AuditEvent.
 func CreateAuditEvent(metrics []string, ipAddress string) AuditEvent {
 	return AuditEvent{
 		Timestamp: time.Now().Unix(),

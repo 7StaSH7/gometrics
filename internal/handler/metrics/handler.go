@@ -12,6 +12,8 @@ type metricsHandler struct {
 	audit          *audit.AuditSubject
 }
 
+// MetricsHandler defines the interface for handling metric-related HTTP requests,
+// including updating, retrieving, and registering routes.
 type MetricsHandler interface {
 	UpdateJSON(*gin.Context)
 	GetJSON(*gin.Context)
@@ -25,6 +27,7 @@ type MetricsHandler interface {
 	GetMany(*gin.Context)
 }
 
+// New creates a new MetricsHandler with the given metrics service, hash key, and audit subject.
 func New(s metrics.MetricsService, key string, asub *audit.AuditSubject) MetricsHandler {
 	return &metricsHandler{
 		metricsService: s,
@@ -33,6 +36,7 @@ func New(s metrics.MetricsService, key string, asub *audit.AuditSubject) Metrics
 	}
 }
 
+// Register registers the metric routes with the Gin engine.
 func (h *metricsHandler) Register(e *gin.Engine) {
 	e.POST("/update/:type/:name/:value", h.Update)
 	e.GET("/value/:type/:name", h.GetOne)

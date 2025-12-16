@@ -9,16 +9,19 @@ type healthHandler struct {
 	pool *pgxpool.Pool
 }
 
+// HealthHandler defines the interface for health check handlers.
 type HealthHandler interface {
 	Register(*gin.Engine)
 }
 
+// New creates a new HealthHandler with the given database pool.
 func New(pool *pgxpool.Pool) HealthHandler {
 	return &healthHandler{
 		pool: pool,
 	}
 }
 
+// Register registers the health check route with the Gin engine.
 func (h *healthHandler) Register(e *gin.Engine) {
 	e.GET("/ping", func(c *gin.Context) {
 		if h.pool == nil {

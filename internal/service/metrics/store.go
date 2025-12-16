@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// Store periodically stores metrics to persistent storage.
 func (s *metricsService) Store(ctx context.Context, restore bool, interval int) error {
 	metricStore := time.NewTicker(time.Duration(interval) * time.Second)
 	defer metricStore.Stop()

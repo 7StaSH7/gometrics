@@ -13,12 +13,14 @@ import (
 	"go.uber.org/zap"
 )
 
+// UpdateMetricInput represents the input parameters for updating a metric via URI.
 type UpdateMetricInput struct {
 	MType string `uri:"type"`
 	Name  string `uri:"name"`
 	Value string `uri:"value"`
 }
 
+// Update handles POST requests to update a single metric by type, name, and value.
 func (h *metricsHandler) Update(c *gin.Context) {
 	c.Writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
@@ -71,6 +73,7 @@ func (h *metricsHandler) Update(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
+// UpdateJSON handles POST requests to update a metric in JSON format.
 func (h *metricsHandler) UpdateJSON(c *gin.Context) {
 	var hash string
 	if h.hashKey != "" {
@@ -152,6 +155,7 @@ func (h *metricsHandler) UpdateJSON(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "success"})
 }
 
+// Updates handles POST requests to update multiple metrics in batch.
 func (h *metricsHandler) Updates(c *gin.Context) {
 	var hash string
 	if h.hashKey != "" {

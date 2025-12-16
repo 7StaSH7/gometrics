@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// UpdateCounter updates a counter metric with the given value.
 func (s *metricsService) UpdateCounter(ctx context.Context, tx pgx.Tx, name string, value int64) error {
 	if s.dbRep != nil && s.dbRep.Ping() {
 		if err := s.dbRep.Add(ctx, tx, name, value); err != nil {
@@ -22,6 +23,7 @@ func (s *metricsService) UpdateCounter(ctx context.Context, tx pgx.Tx, name stri
 	return nil
 }
 
+// UpdateGauge updates a gauge metric with the given value.
 func (s *metricsService) UpdateGauge(ctx context.Context, tx pgx.Tx, name string, value float64) error {
 	if s.dbRep != nil && s.dbRep.Ping() {
 		if err := s.dbRep.Replace(ctx, tx, name, value); err != nil {
@@ -37,6 +39,7 @@ func (s *metricsService) UpdateGauge(ctx context.Context, tx pgx.Tx, name string
 	return nil
 }
 
+// Updates updates multiple metrics in batch.
 func (s *metricsService) Updates(ctx context.Context, metrics []model.Metrics) error {
 	var tx pgx.Tx
 	var err error

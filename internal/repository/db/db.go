@@ -11,6 +11,7 @@ type databaseRepository struct {
 	db *pgxpool.Pool
 }
 
+// DatabaseRepository defines the interface for database operations on metrics.
 type DatabaseRepository interface {
 	StartTransaction(context.Context) (pgx.Tx, error)
 	IntrospectTransaction(ctx context.Context, tx pgx.Tx, err error)
@@ -22,6 +23,7 @@ type DatabaseRepository interface {
 	Ping() bool
 }
 
+// NewDatabaseRepository creates a new DatabaseRepository with the given database pool.
 func NewDatabaseRepository(pool *pgxpool.Pool) DatabaseRepository {
 	return &databaseRepository{
 		db: pool,

@@ -11,11 +11,13 @@ import (
 	"go.uber.org/zap"
 )
 
+// GetMetricInput represents the input parameters for getting a single metric via URI.
 type GetMetricInput struct {
 	MType string `uri:"type"`
 	Name  string `uri:"name"`
 }
 
+// GetOne handles GET requests to retrieve a single metric by type and name.
 func (h *metricsHandler) GetOne(c *gin.Context) {
 	c.Writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
@@ -60,6 +62,7 @@ func (h *metricsHandler) GetOne(c *gin.Context) {
 	}
 }
 
+// GetJSON handles POST requests to retrieve a metric in JSON format.
 func (h *metricsHandler) GetJSON(c *gin.Context) {
 	var body model.Metrics
 
@@ -106,6 +109,7 @@ func (h *metricsHandler) GetJSON(c *gin.Context) {
 	c.JSON(http.StatusOK, body)
 }
 
+// GetMany handles GET requests to retrieve all metrics in HTML format.
 func (h *metricsHandler) GetMany(c *gin.Context) {
 	metrics := h.metricsService.GetMany()
 

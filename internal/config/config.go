@@ -8,6 +8,7 @@ import (
 	"github.com/caarlos0/env"
 )
 
+// ServerConfig holds configuration for the metrics server.
 type ServerConfig struct {
 	LogLevel      string `env:"LOG_LEVEL"`
 	Address       string `env:"ADDRESS"`
@@ -19,6 +20,7 @@ type ServerConfig struct {
 	AuditURL      string `env:"AUDIT_URL"`
 }
 
+// NewServerConfig creates and parses the server configuration.
 func NewServerConfig() (*ServerConfig, *db.PostgresConfig) {
 	cfg := &ServerConfig{}
 	psqlCfg := &db.PostgresConfig{}
