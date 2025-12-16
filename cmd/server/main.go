@@ -9,6 +9,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/gin-contrib/pprof"
+
 	"github.com/7StaSH7/gometrics/internal/audit"
 	"github.com/7StaSH7/gometrics/internal/config"
 	dbconfig "github.com/7StaSH7/gometrics/internal/config/db"
@@ -66,6 +68,8 @@ func initDeps(ctx context.Context) (*config.ServerConfig, *gin.Engine, metricsse
 	}
 
 	mSer := metricsservice.New(storRep, dbRep)
+
+	pprof.Register(router)
 
 	mHan := metricshandler.New(mSer, cfg.Key, auditSubject)
 	hHan := healthhandler.New(psqlPool)

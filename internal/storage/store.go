@@ -11,19 +11,23 @@ import (
 )
 
 func (s *MemStorage) Store() error {
-	metrics := make([]model.Metrics, 0)
+	totalMetrics := len(s.gauges) + len(s.counter)
+	metrics := make([]model.Metrics, 0, totalMetrics)
+
 	for name, value := range s.gauges {
+		v := value
 		metrics = append(metrics, model.Metrics{
 			ID:    name,
 			MType: model.Gauge,
-			Value: &value,
+			Value: &v,
 		})
 	}
 	for name, value := range s.counter {
+		d := value
 		metrics = append(metrics, model.Metrics{
 			ID:    name,
 			MType: model.Counter,
-			Delta: &value,
+			Delta: &d,
 		})
 	}
 

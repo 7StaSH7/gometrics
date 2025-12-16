@@ -95,7 +95,7 @@ func (h *metricsHandler) UpdateJSON(c *gin.Context) {
 			return
 		}
 
-		expectedHash = utils.GenerateSHA256(string(jsonData), h.hashKey)
+		expectedHash = utils.GenerateSHA256Bytes(jsonData, h.hashKey)
 
 		if !utils.VerifySHA256(expectedHash, hash) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
@@ -174,7 +174,7 @@ func (h *metricsHandler) Updates(c *gin.Context) {
 			return
 		}
 
-		expectedHash = utils.GenerateSHA256(string(jsonData), h.hashKey)
+		expectedHash = utils.GenerateSHA256Bytes(jsonData, h.hashKey)
 
 		if !utils.VerifySHA256(expectedHash, hash) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
@@ -220,7 +220,7 @@ func (h *metricsHandler) Updates(c *gin.Context) {
 	}
 
 	if h.audit != nil {
-		var m []string
+		m := make([]string, 0, len(metrics))
 		for _, met := range metrics {
 			m = append(m, met.ID)
 		}

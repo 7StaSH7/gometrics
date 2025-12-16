@@ -8,7 +8,7 @@ import (
 )
 
 func (s *metricsService) UpdateCounter(ctx context.Context, tx pgx.Tx, name string, value int64) error {
-	if s.dbRep.Ping() {
+	if s.dbRep != nil && s.dbRep.Ping() {
 		if err := s.dbRep.Add(ctx, tx, name, value); err != nil {
 			return err
 		}
@@ -23,7 +23,7 @@ func (s *metricsService) UpdateCounter(ctx context.Context, tx pgx.Tx, name stri
 }
 
 func (s *metricsService) UpdateGauge(ctx context.Context, tx pgx.Tx, name string, value float64) error {
-	if s.dbRep.Ping() {
+	if s.dbRep != nil && s.dbRep.Ping() {
 		if err := s.dbRep.Replace(ctx, tx, name, value); err != nil {
 			return err
 		}
@@ -41,7 +41,7 @@ func (s *metricsService) Updates(ctx context.Context, metrics []model.Metrics) e
 	var tx pgx.Tx
 	var err error
 
-	if s.dbRep.Ping() {
+	if s.dbRep != nil && s.dbRep.Ping() {
 		tx, err = s.dbRep.StartTransaction(ctx)
 		if err != nil {
 			return err
@@ -57,7 +57,9 @@ func (s *metricsService) Updates(ctx context.Context, metrics []model.Metrics) e
 		}
 	}
 
-	s.dbRep.IntrospectTransaction(ctx, tx, err)
+	if s.dbRep != nil {
+		s.dbRep.IntrospectTransaction(ctx, tx, err)
+	}
 	if err != nil {
 		return err
 	}
