@@ -45,6 +45,8 @@ func TestFileAuditObserver_Notify(t *testing.T) {
 	err = observer.Notify(context.Background(), event)
 	assert.NoError(t, err)
 
+	_ = observer.Close()
+	
 	content, err := os.ReadFile(tmpFile.Name())
 	assert.NoError(t, err)
 
@@ -116,7 +118,9 @@ func TestAuditSubject_NotifyAll(t *testing.T) {
 		IPAddress: "192.168.0.42",
 	}
 
-	subject.NotifyAll(context.Background(), event)
+	if err := subject.NotifyAll(context.Background(), event); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	assert.Equal(t, 1, mockObserver1.NotifyCallCount)
 	assert.Equal(t, event, mockObserver1.LastEvent)

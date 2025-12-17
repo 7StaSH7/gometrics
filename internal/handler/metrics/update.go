@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/7StaSH7/gometrics/internal/audit"
 	"github.com/7StaSH7/gometrics/internal/logger"
 	"github.com/7StaSH7/gometrics/internal/model"
 	"github.com/7StaSH7/gometrics/internal/utils"
@@ -65,11 +64,7 @@ func (h *metricsHandler) Update(c *gin.Context) {
 		}
 	}
 
-	if h.audit != nil {
-		event := audit.CreateAuditEvent([]string{input.Name}, c.ClientIP())
-		h.audit.NotifyAll(c.Request.Context(), event)
-	}
-
+	h.auditEvent(c.Request.Context(), []string{input.Name}, c.ClientIP())
 	c.Status(http.StatusOK)
 }
 
@@ -147,11 +142,7 @@ func (h *metricsHandler) UpdateJSON(c *gin.Context) {
 		c.Header("HashSHA256", expectedHash)
 	}
 
-	if h.audit != nil {
-		event := audit.CreateAuditEvent([]string{body.ID}, c.ClientIP())
-		h.audit.NotifyAll(c.Request.Context(), event)
-	}
-
+	h.auditEvent(c.Request.Context(), []string{body.ID}, c.ClientIP())
 	c.JSON(http.StatusOK, gin.H{"status": "success"})
 }
 
@@ -223,14 +214,17 @@ func (h *metricsHandler) Updates(c *gin.Context) {
 		c.Header("HashSHA256", expectedHash)
 	}
 
-	if h.audit != nil {
-		m := make([]string, 0, len(metrics))
-		for _, met := range metrics {
-			m = append(m, met.ID)
-		}
-		event := audit.CreateAuditEvent(m, c.ClientIP())
-		h.audit.NotifyAll(c.Request.Context(), event)
-	}
+	h.auditEvent(
+		c.Request.Context(),
+		func() []string {
+			m := make([]string, 0, len(metrics))
+			for _, met := range metrics {
+				m = append(m, met.ID)
+			}
+			return m
+		}(),
+		c.ClientIP(),
+	)
 
 	c.JSON(http.StatusOK, gin.H{"status": "success"})
 }

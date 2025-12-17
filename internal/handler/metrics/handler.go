@@ -1,9 +1,12 @@
 package metrics
 
 import (
+	"context"
 	"github.com/7StaSH7/gometrics/internal/audit"
+	"github.com/7StaSH7/gometrics/internal/logger"
 	"github.com/7StaSH7/gometrics/internal/service/metrics"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type metricsHandler struct {
@@ -33,6 +36,16 @@ func New(s metrics.MetricsService, key string, asub *audit.AuditSubject) Metrics
 		metricsService: s,
 		hashKey:        key,
 		audit:          asub,
+	}
+}
+
+// auditEvent creates and sends an audit event if audit is enabled.
+func (h *metricsHandler) auditEvent(ctx context.Context, metrics []string, ip string) {
+	if h.audit != nil {
+		event := audit.CreateAuditEvent(metrics, ip)
+		if err := h.audit.NotifyAll(ctx, event); err != nil {
+			logger.Log.Error("Audit notification failed", zap.Error(err))
+		}
 	}
 }
 

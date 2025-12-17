@@ -182,7 +182,7 @@ func ExampleMetricsHandler_GetMany() {
 	healthHandler := health.New(nil)
 
 	r := gin.Default()
-	r.LoadHTMLFiles("/home/stash/Work/courses/golang/gometrics/templates/metrics.tmpl")
+	r.LoadHTMLGlob("../../../templates/*.tmpl")
 	handler.Register(r)
 	healthHandler.Register(r)
 
