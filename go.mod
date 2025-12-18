@@ -4,6 +4,7 @@ go 1.24.5
 
 require (
 	github.com/caarlos0/env v3.5.0+incompatible
+	github.com/gin-contrib/pprof v1.5.3
 	github.com/gin-gonic/gin v1.10.1
 	github.com/golang-migrate/migrate/v4 v4.19.0
 	github.com/jackc/pgerrcode v0.0.0-20220416144525-469b46aa5efa

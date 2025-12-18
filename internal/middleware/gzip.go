@@ -113,7 +113,13 @@ func (c *compressReader) Close() error {
 	return c.zr.Close()
 }
 
+// GzipMiddleware provides gzip compression for HTTP responses and decompression for requests.
 func GzipMiddleware(c *gin.Context) {
+	if strings.HasPrefix(c.Request.URL.Path, "/debug/pprof/") {
+		c.Next()
+		return
+	}
+
 	acceptEncoding := c.Request.Header.Get("Accept-Encoding")
 	supportsGzip := strings.Contains(acceptEncoding, "gzip")
 	if supportsGzip {

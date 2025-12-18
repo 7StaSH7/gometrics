@@ -4,6 +4,7 @@ import (
 	"github.com/7StaSH7/gometrics/internal/config"
 )
 
+// MemStorage represents an in-memory storage for metrics.
 type MemStorage struct {
 	gauges   map[string]float64
 	counter  map[string]int64
@@ -11,6 +12,7 @@ type MemStorage struct {
 	isSync   bool
 }
 
+// MemStorageInterface defines the interface for memory storage operations.
 type MemStorageInterface interface {
 	Replace(name string, value float64)
 	Add(name string, value int64)
@@ -21,6 +23,7 @@ type MemStorageInterface interface {
 	Restore() error
 }
 
+// NewStorage creates a new MemStorage instance with the given server config.
 func NewStorage(cfg *config.ServerConfig) MemStorageInterface {
 	return &MemStorage{
 		gauges:   make(map[string]float64),

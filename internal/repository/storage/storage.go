@@ -8,6 +8,7 @@ type memStorageRepository struct {
 	storage storage.MemStorageInterface
 }
 
+// MemStorageRepository defines the interface for memory storage repository operations.
 type MemStorageRepository interface {
 	Replace(name string, value float64) error
 	Add(name string, value int64) error
@@ -18,6 +19,7 @@ type MemStorageRepository interface {
 	Store() error
 }
 
+// NewMemStorageRepository creates a new MemStorageRepository with the given storage.
 func NewMemStorageRepository(storage storage.MemStorageInterface) MemStorageRepository {
 	return &memStorageRepository{
 		storage: storage,

@@ -1,15 +1,16 @@
 package model
 
+// Metric types constants
 const (
+	// Counter represents a counter metric type
 	Counter = "counter"
-	Gauge   = "gauge"
+	// Gauge represents a gauge metric type
+	Gauge = "gauge"
 )
 
-// NOTE: Не усложняем пример, вводя иерархическую вложенность структур.
-// Органичиваясь плоской моделью.
-// Delta и Value объявлены через указатели,
-// что бы отличать значение "0", от не заданного значения
-// и соответственно не кодировать в структуру.
+// Metrics represents a metric data structure used for storing and transmitting
+// metric information. It includes ID, type, delta for counters, value for gauges,
+// and optional hash for integrity verification.
 type Metrics struct {
 	ID    string   `json:"id"`
 	MType string   `json:"type"`

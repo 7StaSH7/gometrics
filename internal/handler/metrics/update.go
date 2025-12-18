@@ -12,12 +12,14 @@ import (
 	"go.uber.org/zap"
 )
 
+// UpdateMetricInput represents the input parameters for updating a metric via URI.
 type UpdateMetricInput struct {
 	MType string `uri:"type"`
 	Name  string `uri:"name"`
 	Value string `uri:"value"`
 }
 
+// Update handles POST requests to update a single metric by type, name, and value.
 func (h *metricsHandler) Update(c *gin.Context) {
 	c.Writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
@@ -62,9 +64,11 @@ func (h *metricsHandler) Update(c *gin.Context) {
 		}
 	}
 
+	h.auditEvent(c.Request.Context(), []string{input.Name}, c.ClientIP())
 	c.Status(http.StatusOK)
 }
 
+// UpdateJSON handles POST requests to update a metric in JSON format.
 func (h *metricsHandler) UpdateJSON(c *gin.Context) {
 	var hash string
 	if h.hashKey != "" {
@@ -89,7 +93,7 @@ func (h *metricsHandler) UpdateJSON(c *gin.Context) {
 			return
 		}
 
-		expectedHash = utils.GenerateSHA256(string(jsonData), h.hashKey)
+		expectedHash = utils.GenerateSHA256Bytes(jsonData, h.hashKey)
 
 		if !utils.VerifySHA256(expectedHash, hash) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
@@ -138,9 +142,11 @@ func (h *metricsHandler) UpdateJSON(c *gin.Context) {
 		c.Header("HashSHA256", expectedHash)
 	}
 
+	h.auditEvent(c.Request.Context(), []string{body.ID}, c.ClientIP())
 	c.JSON(http.StatusOK, gin.H{"status": "success"})
 }
 
+// Updates handles POST requests to update multiple metrics in batch.
 func (h *metricsHandler) Updates(c *gin.Context) {
 	var hash string
 	if h.hashKey != "" {
@@ -163,7 +169,7 @@ func (h *metricsHandler) Updates(c *gin.Context) {
 			return
 		}
 
-		expectedHash = utils.GenerateSHA256(string(jsonData), h.hashKey)
+		expectedHash = utils.GenerateSHA256Bytes(jsonData, h.hashKey)
 
 		if !utils.VerifySHA256(expectedHash, hash) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
@@ -207,6 +213,18 @@ func (h *metricsHandler) Updates(c *gin.Context) {
 	if h.hashKey != "" && expectedHash != "" {
 		c.Header("HashSHA256", expectedHash)
 	}
+
+	h.auditEvent(
+		c.Request.Context(),
+		func() []string {
+			m := make([]string, 0, len(metrics))
+			for _, met := range metrics {
+				m = append(m, met.ID)
+			}
+			return m
+		}(),
+		c.ClientIP(),
+	)
 
 	c.JSON(http.StatusOK, gin.H{"status": "success"})
 }

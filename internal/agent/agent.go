@@ -21,11 +21,16 @@ import (
 	"resty.dev/v3"
 )
 
+// Gauge represents a gauge metric type.
 type Gauge float64
+
+// Counter represents a counter metric type.
 type Counter int64
 
+// MetricsMap is a map of metric names to their values.
 type MetricsMap map[string]any
 
+// Agent represents the metrics agent that collects and sends metrics.
 type Agent struct {
 	client  *resty.Client
 	baseURL string
@@ -40,6 +45,7 @@ type Agent struct {
 	ms        runtime.MemStats
 }
 
+// AgentInterface defines the interface for the metrics agent.
 type AgentInterface interface {
 	GetRuntimeMetrics() error
 	GetGopsutilMetrics() error
@@ -49,6 +55,7 @@ type AgentInterface interface {
 	Start(chan func() error)
 }
 
+// New creates a new Agent with the given context, errgroup, and config.
 func New(ctx context.Context, group *errgroup.Group, cfg *config.AgentConfig) AgentInterface {
 	client := resty.New().
 		AddRetryConditions(
@@ -100,6 +107,7 @@ func New(ctx context.Context, group *errgroup.Group, cfg *config.AgentConfig) Ag
 	}
 }
 
+// SendMetrics sends all collected metrics one by one.
 func (a *Agent) SendMetrics() error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -120,6 +128,7 @@ func (a *Agent) SendMetrics() error {
 	return nil
 }
 
+// SendMetricsBatch sends all collected metrics in batch.
 func (a *Agent) SendMetricsBatch() error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -153,6 +162,7 @@ func (a *Agent) SendMetricsBatch() error {
 	return nil
 }
 
+// GetRuntimeMetrics collects runtime metrics from Go.
 func (a *Agent) GetRuntimeMetrics() error {
 	runtime.ReadMemStats(&a.ms)
 	a.mu.Lock()
@@ -191,6 +201,7 @@ func (a *Agent) GetRuntimeMetrics() error {
 	return nil
 }
 
+// GetGopsutilMetrics collects system metrics using gopsutil.
 func (a *Agent) GetGopsutilMetrics() error {
 	v, err := mem.VirtualMemory()
 	if err != nil {
@@ -212,6 +223,7 @@ func (a *Agent) GetGopsutilMetrics() error {
 	return nil
 }
 
+// Start starts the agent with polling and reporting goroutines.
 func (a *Agent) Start(sendJobs chan func() error) {
 	a.g.Go(func() error {
 		t := time.NewTicker(time.Duration(a.cfg.PollInterval) * time.Second)
@@ -250,6 +262,7 @@ func (a *Agent) Start(sendJobs chan func() error) {
 	})
 }
 
+// Close closes the agent's HTTP client.
 func (a *Agent) Close() error {
 	return a.client.Close()
 }

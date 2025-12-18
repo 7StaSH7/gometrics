@@ -7,6 +7,7 @@ import (
 	"github.com/caarlos0/env"
 )
 
+// AgentConfig holds configuration for the metrics agent.
 type AgentConfig struct {
 	Address        string `env:"ADDRESS"`
 	PollInterval   int    `env:"POLL_INTERVAL"`
@@ -15,6 +16,7 @@ type AgentConfig struct {
 	Limit          int    `env:"RATE_LIMIT"`
 }
 
+// NewAgentConfig creates and parses the agent configuration.
 func NewAgentConfig() *AgentConfig {
 	cfg := &AgentConfig{}
 

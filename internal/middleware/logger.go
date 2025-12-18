@@ -19,6 +19,7 @@ func (w bodyLogWriter) Write(b []byte) (int, error) {
 	return w.ResponseWriter.Write(b)
 }
 
+// RequestLogger logs incoming requests and their responses.
 func RequestLogger(c *gin.Context) {
 	blw := &bodyLogWriter{body: bytes.NewBufferString(""), ResponseWriter: c.Writer}
 	c.Writer = blw

@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// MetricsService defines the interface for metric operations.
 type MetricsService interface {
 	UpdateCounter(ctx context.Context, tx pgx.Tx, name string, value int64) error
 	UpdateGauge(ctx context.Context, tx pgx.Tx, name string, value float64) error
@@ -24,6 +25,7 @@ type metricsService struct {
 	dbRep      db.DatabaseRepository
 }
 
+// New creates a new MetricsService with the given storage and database repositories.
 func New(storageRep storage.MemStorageRepository, dbRep db.DatabaseRepository) MetricsService {
 	return &metricsService{
 		storageRep: storageRep,

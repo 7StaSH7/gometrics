@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// PostgresConfig holds configuration for PostgreSQL connection.
 type PostgresConfig struct {
 	URL string `env:"DATABASE_DSN"`
 }
@@ -29,6 +30,7 @@ func (tracer *queryTracer) TraceQueryStart(ctx context.Context, _ *pgx.Conn, dat
 func (tracer *queryTracer) TraceQueryEnd(ctx context.Context, conn *pgx.Conn, data pgx.TraceQueryEndData) {
 }
 
+// NewPostgresDriver creates a new PostgreSQL connection pool and runs migrations.
 func NewPostgresDriver(ctx context.Context, cfg *PostgresConfig) (*pgxpool.Pool, error) {
 	if err := autoMigrate(cfg.URL); err != nil {
 		return nil, err
