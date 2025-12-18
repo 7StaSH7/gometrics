@@ -78,7 +78,7 @@ func TestPool_Reuse(t *testing.T) {
 	p.Put(obj)
 
 	gotCached := false
-	for _ = range 10 {
+	for range 10 {
 		obj2 := p.Get()
 		if obj2.ID == 0 {
 			gotCached = true
@@ -103,7 +103,7 @@ func TestPool_Concurrency(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(workers)
 
-	for _ = range workers {
+	for range workers {
 		go func() {
 			defer wg.Done()
 			for j := range iterations {
