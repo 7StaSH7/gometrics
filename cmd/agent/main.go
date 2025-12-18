@@ -13,8 +13,21 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+var (
+	buildVersion string = "N/A"
+	buildDate    string = "N/A"
+	buildCommit  string = "N/A"
+)
+
 func main() {
 	logger.Initialize("info")
+
+	logger.Log.Info(
+		"build info",
+		zap.String("build version", buildVersion),
+		zap.String("build date", buildDate),
+		zap.String("build commit", buildCommit),
+	)
 
 	cfg := config.NewAgentConfig()
 

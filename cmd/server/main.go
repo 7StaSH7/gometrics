@@ -28,6 +28,12 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+var (
+	buildVersion string = "N/A"
+	buildDate    string = "N/A"
+	buildCommit  string = "N/A"
+)
+
 func main() {
 	if err := run(); err != nil {
 		fmt.Println("Error starting the server:", err)
@@ -87,6 +93,13 @@ func run() error {
 	g, gCtx := errgroup.WithContext(ctx)
 
 	cfg, router, ser := initDeps(gCtx)
+
+	logger.Log.Info(
+		"build info",
+		zap.String("Build version", buildVersion),
+		zap.String("Build date", buildDate),
+		zap.String("Build commit", buildCommit),
+	)
 
 	srv := &http.Server{
 		Addr:    cfg.Address,
