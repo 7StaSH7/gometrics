@@ -1,3 +1,4 @@
+// Package storage provides repository implementations for memory storage operations.
 package storage
 
 import (

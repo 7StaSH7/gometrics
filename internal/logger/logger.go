@@ -1,3 +1,4 @@
+// Package logger provides a global logger instance.
 package logger
 
 import "go.uber.org/zap"

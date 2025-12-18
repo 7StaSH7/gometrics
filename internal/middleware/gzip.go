@@ -1,3 +1,5 @@
+// Package middleware provides HTTP middleware for request/response processing.
+// GZIP compression middleware
 package middleware
 
 import (

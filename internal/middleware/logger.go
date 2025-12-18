@@ -1,3 +1,5 @@
+// Package middleware provides HTTP middleware for request/response processing.
+// Logger middleware
 package middleware
 
 import (

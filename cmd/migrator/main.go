@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	"log"
+	"fmt"
 	"os"
 
 	"github.com/7StaSH7/gometrics/internal/config"
@@ -21,33 +21,36 @@ const (
 )
 
 func main() {
+	if err := run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+	}
+}
+
+func run() error {
 	dir := parseArgs()
 
 	_, cfg := config.NewServerConfig()
 
 	m, err := migrate.New(migrationDir, cfg.URL)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("failed to create migration: %w", err)
 	}
 
 	switch dir {
 	case Up:
 		if err := up(m); err != nil {
-			log.Fatal(err)
+			return fmt.Errorf("migration up failed: %w", err)
 		}
-		log.Println("Migration up completed")
-		os.Exit(0)
+		fmt.Println("Migration up completed")
+		return nil
 	case Down:
 		if err := down(m); err != nil {
-			log.Fatal(err)
+			return fmt.Errorf("migration down failed: %w", err)
 		}
-		log.Println("Migration down completed")
-		os.Exit(0)
+		fmt.Println("Migration down completed")
+		return nil
 	default:
-		{
-			log.Fatal("Invalid migration direction")
-			os.Exit(0)
-		}
+		return fmt.Errorf("invalid migration direction: %s", dir)
 	}
 }
 

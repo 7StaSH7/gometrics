@@ -41,7 +41,7 @@ func main() {
 
 	if err := g.Wait(); err != nil {
 		logger.Log.Error("something went wrong", zap.Error(err))
-		panic(err)
+		return
 	}
 }
 

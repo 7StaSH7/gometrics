@@ -1,3 +1,4 @@
+// Package pgerrors provides PostgreSQL error classification and retry logic.
 package pgerrors
 
 import (

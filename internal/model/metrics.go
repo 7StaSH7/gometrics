@@ -1,3 +1,4 @@
+// Package model defines the data models for metrics.
 package model
 
 // Metric types constants

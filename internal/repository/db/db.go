@@ -1,3 +1,4 @@
+// Package db provides a database repository implementation for metrics.
 package db
 
 import (
