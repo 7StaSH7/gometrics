@@ -24,9 +24,9 @@ func main() {
 
 	logger.Log.Info(
 		"build info",
-		zap.String("build version", buildVersion),
-		zap.String("build date", buildDate),
-		zap.String("build commit", buildCommit),
+		zap.String("build_version", buildVersion),
+		zap.String("build_date", buildDate),
+		zap.String("build_commit", buildCommit),
 	)
 
 	cfg := config.NewAgentConfig()

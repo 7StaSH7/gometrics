@@ -96,9 +96,9 @@ func run() error {
 
 	logger.Log.Info(
 		"build info",
-		zap.String("Build version", buildVersion),
-		zap.String("Build date", buildDate),
-		zap.String("Build commit", buildCommit),
+		zap.String("build_version", buildVersion),
+		zap.String("build date", buildDate),
+		zap.String("build commit", buildCommit),
 	)
 
 	srv := &http.Server{
