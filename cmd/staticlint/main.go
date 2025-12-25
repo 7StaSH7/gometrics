@@ -46,38 +46,38 @@ import (
 )
 
 func main() {
-	var mychecks []*analysis.Analyzer
+	var analyzers []*analysis.Analyzer
 
 	// 1. Standard static analyzers from golang.org/x/tools/go/analysis/passes
-	mychecks = append(mychecks, printf.Analyzer)
-	mychecks = append(mychecks, shift.Analyzer)
-	mychecks = append(mychecks, structtag.Analyzer)
+	analyzers = append(analyzers, printf.Analyzer)
+	analyzers = append(analyzers, shift.Analyzer)
+	analyzers = append(analyzers, structtag.Analyzer)
 
 	// 2. All analyzers of class SA from staticcheck.io
 	for _, v := range staticcheck.Analyzers {
 		if strings.HasPrefix(v.Analyzer.Name, "SA") {
-			mychecks = append(mychecks, v.Analyzer)
+			analyzers = append(analyzers, v.Analyzer)
 		}
 	}
 
 	// 3. One analyzer of other classes from staticcheck.io
 	for _, v := range simple.Analyzers {
-		mychecks = append(mychecks, v.Analyzer)
+		analyzers = append(analyzers, v.Analyzer)
 	}
 
 	// One Style check (ST class)
 	for _, v := range stylecheck.Analyzers {
 		if v.Analyzer.Name == "ST1000" {
-			mychecks = append(mychecks, v.Analyzer)
+			analyzers = append(analyzers, v.Analyzer)
 		}
 	}
 
 	// 4. Two public analyzers
-	mychecks = append(mychecks, bodyclose.Analyzer)
-	mychecks = append(mychecks, nilerr.Analyzer)
+	analyzers = append(analyzers, bodyclose.Analyzer)
+	analyzers = append(analyzers, nilerr.Analyzer)
 
 	// 5. Custom analyzer
-	mychecks = append(mychecks, osexitcheck.Analyzer)
+	analyzers = append(analyzers, osexitcheck.Analyzer)
 
-	multichecker.Main(mychecks...)
+	multichecker.Main(analyzers...)
 }

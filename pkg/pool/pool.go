@@ -24,12 +24,12 @@ func New[T Resetter](newFn func() T) *Pool[T] {
 	}
 }
 
-// Get - retrieves an item from the pool.
+// Get retrieves an item from the pool.
 func (p *Pool[T]) Get() T {
 	return p.pool.Get().(T)
 }
 
-// Put - puts an item to the pool.
+// Put puts an item to the pool.
 // It calls Reset() on the item before putting it back.
 func (p *Pool[T]) Put(v T) {
 	v.Reset()
