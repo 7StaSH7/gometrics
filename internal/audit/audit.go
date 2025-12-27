@@ -1,3 +1,4 @@
+// Package audit provides functionality for auditing metrics operations.
 package audit
 
 import (

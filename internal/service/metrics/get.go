@@ -1,3 +1,4 @@
+// Package metrics provides the service layer for metrics operations.
 package metrics
 
 // GetCounter retrieves the value of a counter metric by name.

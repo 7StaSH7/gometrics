@@ -13,8 +13,21 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+var (
+	buildVersion string = "N/A"
+	buildDate    string = "N/A"
+	buildCommit  string = "N/A"
+)
+
 func main() {
 	logger.Initialize("info")
+
+	logger.Log.Info(
+		"build info",
+		zap.String("build_version", buildVersion),
+		zap.String("build_date", buildDate),
+		zap.String("build_commit", buildCommit),
+	)
 
 	cfg := config.NewAgentConfig()
 
@@ -41,7 +54,7 @@ func main() {
 
 	if err := g.Wait(); err != nil {
 		logger.Log.Error("something went wrong", zap.Error(err))
-		panic(err)
+		return
 	}
 }
 

@@ -1,3 +1,4 @@
+// Package metrics provides the service layer for metrics operations.
 package metrics
 
 import (

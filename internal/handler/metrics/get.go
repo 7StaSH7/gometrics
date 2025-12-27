@@ -1,3 +1,4 @@
+// Package metrics provides HTTP handlers for metrics operations.
 package metrics
 
 import (

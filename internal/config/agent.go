@@ -1,3 +1,4 @@
+// Package config provides configuration structures and parsing for the metrics application.
 package config
 
 import (

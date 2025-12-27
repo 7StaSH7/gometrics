@@ -1,3 +1,4 @@
+// Package db provides PostgreSQL configuration and connection handling.
 package db
 
 import (
