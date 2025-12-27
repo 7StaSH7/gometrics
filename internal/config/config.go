@@ -18,6 +18,7 @@ type ServerConfig struct {
 	Key           string `env:"KEY"`
 	AuditFile     string `env:"AUDIT_FILE"`
 	AuditURL      string `env:"AUDIT_URL"`
+	CryptoKey     string `env:"CRYPTO_KEY"`
 }
 
 // NewServerConfig creates and parses the server configuration.
@@ -33,6 +34,7 @@ func NewServerConfig() (*ServerConfig, *db.PostgresConfig) {
 	flag.StringVar(&cfg.Key, "k", "", "key to calculate auth hash")
 	flag.StringVar(&cfg.AuditFile, "audit-file", "", "filepath to store audit events")
 	flag.StringVar(&cfg.AuditURL, "audit-url", "", "url to send audit events")
+	flag.StringVar(&cfg.CryptoKey, "crypto-key", "", "path to private key file for decryption")
 
 	flag.StringVar(&psqlCfg.URL, "d", "postgres://postgres:postgres@localhost:5432/metrics?search_path=public&sslmode=disable", "url for postgres db connection")
 

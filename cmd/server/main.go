@@ -23,6 +23,7 @@ import (
 	storagerepositsory "github.com/7StaSH7/gometrics/internal/repository/storage"
 	metricsservice "github.com/7StaSH7/gometrics/internal/service/metrics"
 	"github.com/7StaSH7/gometrics/internal/storage"
+	"github.com/7StaSH7/gometrics/internal/utils"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -42,6 +43,14 @@ func main() {
 
 func initDeps(ctx context.Context) (*config.ServerConfig, *gin.Engine, metricsservice.MetricsService) {
 	cfg, psqlCfg := config.NewServerConfig()
+
+	if cfg.CryptoKey != "" {
+		if _, err := utils.LoadPrivateKey(cfg.CryptoKey); err != nil {
+			logger.Log.Error("failed to load private key", zap.Error(err))
+			return nil, nil, nil
+		}
+		logger.Log.Info("private key loaded successfully")
+	}
 
 	router := gin.New()
 
@@ -77,7 +86,7 @@ func initDeps(ctx context.Context) (*config.ServerConfig, *gin.Engine, metricsse
 
 	pprof.Register(router)
 
-	mHan := metricshandler.New(mSer, cfg.Key, auditSubject)
+	mHan := metricshandler.New(mSer, cfg.Key, cfg.CryptoKey, auditSubject)
 	hHan := healthhandler.New(psqlPool)
 
 	mHan.Register(router)

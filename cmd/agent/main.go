@@ -9,6 +9,7 @@ import (
 	"github.com/7StaSH7/gometrics/internal/agent"
 	"github.com/7StaSH7/gometrics/internal/config"
 	"github.com/7StaSH7/gometrics/internal/logger"
+	"github.com/7StaSH7/gometrics/internal/utils"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -30,6 +31,14 @@ func main() {
 	)
 
 	cfg := config.NewAgentConfig()
+
+	if cfg.CryptoKey != "" {
+		if _, err := utils.LoadPublicKey(cfg.CryptoKey); err != nil {
+			logger.Log.Error("failed to load public key", zap.Error(err))
+			return
+		}
+		logger.Log.Info("public key loaded successfully")
+	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()

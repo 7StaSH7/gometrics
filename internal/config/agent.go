@@ -15,6 +15,7 @@ type AgentConfig struct {
 	ReportInterval int    `env:"REPORT_INTERVAL"`
 	Key            string `env:"KEY"`
 	Limit          int    `env:"RATE_LIMIT"`
+	CryptoKey      string `env:"CRYPTO_KEY"`
 }
 
 // NewAgentConfig creates and parses the agent configuration.
@@ -26,6 +27,7 @@ func NewAgentConfig() *AgentConfig {
 	flag.IntVar(&cfg.PollInterval, "p", 2, "poll interval")
 	flag.StringVar(&cfg.Key, "k", "", "key to calculate auth hash")
 	flag.IntVar(&cfg.Limit, "l", 5, "request rate limit")
+	flag.StringVar(&cfg.CryptoKey, "crypto-key", "", "path to public key file for encryption")
 	flag.Parse()
 
 	if err := env.Parse(cfg); err != nil {

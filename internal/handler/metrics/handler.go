@@ -13,6 +13,7 @@ import (
 type metricsHandler struct {
 	metricsService metrics.MetricsService
 	hashKey        string
+	cryptoKey      string
 	audit          *audit.AuditSubject
 }
 
@@ -31,11 +32,12 @@ type MetricsHandler interface {
 	GetMany(*gin.Context)
 }
 
-// New creates a new MetricsHandler with the given metrics service, hash key, and audit subject.
-func New(s metrics.MetricsService, key string, asub *audit.AuditSubject) MetricsHandler {
+// New creates a new MetricsHandler with the given metrics service, hash key, crypto key, and audit subject.
+func New(s metrics.MetricsService, key string, cryptoKey string, asub *audit.AuditSubject) MetricsHandler {
 	return &metricsHandler{
 		metricsService: s,
 		hashKey:        key,
+		cryptoKey:      cryptoKey,
 		audit:          asub,
 	}
 }
