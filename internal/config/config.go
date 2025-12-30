@@ -3,6 +3,7 @@ package config
 import (
 	"flag"
 	"log"
+	"os"
 
 	"github.com/7StaSH7/gometrics/internal/config/db"
 	"github.com/caarlos0/env"
@@ -26,6 +27,10 @@ func NewServerConfig() (*ServerConfig, *db.PostgresConfig) {
 	cfg := &ServerConfig{}
 	psqlCfg := &db.PostgresConfig{}
 
+	var configPath string
+	flag.StringVar(&configPath, "c", "", "path to JSON config file")
+	flag.StringVar(&configPath, "config", "", "path to JSON config file")
+
 	flag.StringVar(&cfg.LogLevel, "l", "info", "log level")
 	flag.StringVar(&cfg.Address, "a", "localhost:8080", "address to listen on")
 	flag.IntVar(&cfg.StoreInterval, "i", 300, "interval to store metrics to file")
@@ -39,6 +44,34 @@ func NewServerConfig() (*ServerConfig, *db.PostgresConfig) {
 	flag.StringVar(&psqlCfg.URL, "d", "postgres://postgres:postgres@localhost:5432/metrics?search_path=public&sslmode=disable", "url for postgres db connection")
 
 	flag.Parse()
+
+	if configPath == "" {
+		configPath = os.Getenv("CONFIG")
+	}
+
+	if configPath != "" {
+		jsonCfg, err := loadServerConfigFromFile(configPath)
+		if err != nil {
+			log.Printf("failed to load config file: %v", err)
+		} else {
+			if jsonCfg.Address != "" {
+				cfg.Address = jsonCfg.Address
+			}
+			cfg.Restore = jsonCfg.Restore
+			if jsonCfg.StoreInterval != "" {
+				cfg.StoreInterval = parseDuration(jsonCfg.StoreInterval)
+			}
+			if jsonCfg.StoreFile != "" {
+				cfg.StoreFilePath = jsonCfg.StoreFile
+			}
+			if jsonCfg.DatabaseDSN != "" {
+				psqlCfg.URL = jsonCfg.DatabaseDSN
+			}
+			if jsonCfg.CryptoKey != "" {
+				cfg.CryptoKey = jsonCfg.CryptoKey
+			}
+		}
+	}
 
 	if err := env.Parse(cfg); err != nil {
 		log.Panic(err)
