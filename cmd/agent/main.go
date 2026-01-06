@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/7StaSH7/gometrics/internal/agent"
@@ -40,7 +41,7 @@ func main() {
 		logger.Log.Info("public key loaded successfully")
 	}
 
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 	defer cancel()
 
 	g, gCtx := errgroup.WithContext(ctx)
@@ -52,19 +53,30 @@ func main() {
 
 	sendJobs := make(chan func() error, cfg.Limit)
 
+	var wg sync.WaitGroup
+	wg.Add(cfg.Limit)
+
 	a.Start(sendJobs)
 
 	for w := 1; w <= cfg.Limit; w++ {
 		g.Go(func() error {
+			defer wg.Done()
 			worker(gCtx, w, sendJobs)
 			return nil
 		})
 	}
 
+	go func() {
+		<-gCtx.Done()
+		close(sendJobs)
+	}()
+
 	if err := g.Wait(); err != nil {
 		logger.Log.Error("something went wrong", zap.Error(err))
 		return
 	}
+
+	wg.Wait()
 }
 
 func worker(ctx context.Context, id int, jobs <-chan func() error) {

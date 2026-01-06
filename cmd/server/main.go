@@ -96,7 +96,7 @@ func initDeps(ctx context.Context) (*config.ServerConfig, *gin.Engine, metricsse
 }
 
 func run() error {
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 	defer cancel()
 
 	g, gCtx := errgroup.WithContext(ctx)
