@@ -293,7 +293,7 @@ func (a *Agent) sendOneMetric(mType, name string, value any) error {
 	}
 	logger.Log.Info("send request with body", zap.String("body", string(jsonData)))
 
-	var requestBytes []byte = jsonData
+	var requestBytes = jsonData
 	if a.cfg.CryptoKey != "" {
 		requestBytes, err = utils.Encrypt(jsonData)
 		if err != nil {
@@ -326,7 +326,7 @@ func (a *Agent) sendBatchMetrics(metrics []model.Metrics) error {
 	}
 	logger.Log.Info("send request with body", zap.String("body", string(jsonData)))
 
-	var requestBytes []byte = jsonData
+	var requestBytes = jsonData
 	if a.cfg.CryptoKey != "" {
 		requestBytes, err = utils.Encrypt(jsonData)
 		if err != nil {
