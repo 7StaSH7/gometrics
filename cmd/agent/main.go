@@ -4,11 +4,13 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/7StaSH7/gometrics/internal/agent"
 	"github.com/7StaSH7/gometrics/internal/config"
 	"github.com/7StaSH7/gometrics/internal/logger"
+	"github.com/7StaSH7/gometrics/internal/utils"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -31,7 +33,15 @@ func main() {
 
 	cfg := config.NewAgentConfig()
 
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	if cfg.CryptoKey != "" {
+		if _, err := utils.LoadPublicKey(cfg.CryptoKey); err != nil {
+			logger.Log.Error("failed to load public key", zap.Error(err))
+			return
+		}
+		logger.Log.Info("public key loaded successfully")
+	}
+
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 	defer cancel()
 
 	g, gCtx := errgroup.WithContext(ctx)
@@ -43,19 +53,30 @@ func main() {
 
 	sendJobs := make(chan func() error, cfg.Limit)
 
+	var wg sync.WaitGroup
+	wg.Add(cfg.Limit)
+
 	a.Start(sendJobs)
 
 	for w := 1; w <= cfg.Limit; w++ {
 		g.Go(func() error {
+			defer wg.Done()
 			worker(gCtx, w, sendJobs)
 			return nil
 		})
 	}
 
+	go func() {
+		<-gCtx.Done()
+		close(sendJobs)
+	}()
+
 	if err := g.Wait(); err != nil {
 		logger.Log.Error("something went wrong", zap.Error(err))
 		return
 	}
+
+	wg.Wait()
 }
 
 func worker(ctx context.Context, id int, jobs <-chan func() error) {

@@ -22,7 +22,7 @@ func BenchmarkUpdateJSON(b *testing.B) {
 	storRep := storagerepositsory.NewMemStorageRepository(stor)
 	mSer := metricsservice.New(storRep, nil)
 	auditSubject := audit.NewAuditSubject()
-	handler := New(mSer, "", auditSubject)
+	handler := New(mSer, "", "", auditSubject)
 
 	router := gin.New()
 	handler.Register(router)
@@ -39,7 +39,7 @@ func BenchmarkUpdateJSON(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		req := httptest.NewRequest(http.MethodPost, "/update/", bytes.NewReader(jsonData))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
@@ -52,7 +52,7 @@ func BenchmarkUpdateJSONWithHash(b *testing.B) {
 	storRep := storagerepositsory.NewMemStorageRepository(stor)
 	mSer := metricsservice.New(storRep, nil)
 	auditSubject := audit.NewAuditSubject()
-	handler := New(mSer, "secret-key", auditSubject)
+	handler := New(mSer, "secret-key", "", auditSubject)
 
 	router := gin.New()
 	handler.Register(router)
@@ -69,7 +69,7 @@ func BenchmarkUpdateJSONWithHash(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		req := httptest.NewRequest(http.MethodPost, "/update/", bytes.NewReader(jsonData))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("HashSHA256", "dummy-hash")
@@ -83,13 +83,13 @@ func BenchmarkUpdates(b *testing.B) {
 	storRep := storagerepositsory.NewMemStorageRepository(stor)
 	mSer := metricsservice.New(storRep, nil)
 	auditSubject := audit.NewAuditSubject()
-	handler := New(mSer, "", auditSubject)
+	handler := New(mSer, "", "", auditSubject)
 
 	router := gin.New()
 	handler.Register(router)
 
 	metrics := make([]model.Metrics, 0, 10)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		delta := int64(i * 10)
 		metrics = append(metrics, model.Metrics{
 			ID:    "counter_" + string(rune('0'+i)),
@@ -103,7 +103,7 @@ func BenchmarkUpdates(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		req := httptest.NewRequest(http.MethodPost, "/updates/", bytes.NewReader(jsonData))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
@@ -121,7 +121,7 @@ func BenchmarkUpdateCounter(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = mSer.UpdateCounter(ctx, nil, "test_counter", 1)
 	}
 }
@@ -136,7 +136,7 @@ func BenchmarkUpdateGauge(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = mSer.UpdateGauge(ctx, nil, "test_gauge", 123.45)
 	}
 }

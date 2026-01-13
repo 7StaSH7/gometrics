@@ -3,6 +3,7 @@ package metrics
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"strconv"
 
@@ -77,21 +78,50 @@ func (h *metricsHandler) UpdateJSON(c *gin.Context) {
 	}
 
 	var body model.Metrics
-	if err := c.ShouldBindJSON(&body); err != nil {
-		logger.Log.Debug("cannot decode request JSON body", zap.Error(err))
-		c.JSON(http.StatusBadRequest, gin.H{"error": err})
-		return
+	var jsonData []byte
+
+	if h.cryptoKey != "" {
+		var err error
+		jsonData, err = io.ReadAll(c.Request.Body)
+		if err != nil {
+			logger.Log.Debug("cannot read request body", zap.Error(err))
+			c.JSON(http.StatusBadRequest, gin.H{"error": err})
+			return
+		}
+
+		decrypted, err := utils.Decrypt(jsonData)
+		if err != nil {
+			logger.Log.Debug("cannot decrypt request body", zap.Error(err))
+			c.JSON(http.StatusBadRequest, gin.H{"error": err})
+			return
+		}
+
+		if err := json.Unmarshal(decrypted, &body); err != nil {
+			logger.Log.Debug("cannot unmarshal decrypted JSON body", zap.Error(err))
+			c.JSON(http.StatusBadRequest, gin.H{"error": err})
+			return
+		}
+		jsonData = decrypted
+	} else {
+		if err := c.ShouldBindJSON(&body); err != nil {
+			logger.Log.Debug("cannot decode request JSON body", zap.Error(err))
+			c.JSON(http.StatusBadRequest, gin.H{"error": err})
+			return
+		}
 	}
 
 	logger.Log.Debug("decoded JSON body", zap.Any("body", body))
 
 	var expectedHash string
 	if h.hashKey != "" && hash != "" {
-		jsonData, err := json.Marshal(body)
-		if err != nil {
-			logger.Log.Debug("cannot marshal JSON body", zap.Error(err))
-			c.JSON(http.StatusBadRequest, gin.H{"error": err})
-			return
+		if len(jsonData) == 0 {
+			var err error
+			jsonData, err = json.Marshal(body)
+			if err != nil {
+				logger.Log.Debug("cannot marshal JSON body", zap.Error(err))
+				c.JSON(http.StatusBadRequest, gin.H{"error": err})
+				return
+			}
 		}
 
 		expectedHash = utils.GenerateSHA256Bytes(jsonData, h.hashKey)
@@ -155,19 +185,48 @@ func (h *metricsHandler) Updates(c *gin.Context) {
 	}
 
 	metrics := make([]model.Metrics, 0)
-	if err := c.ShouldBindJSON(&metrics); err != nil {
-		logger.Log.Debug("cannot decode request JSON body", zap.Error(err))
-		c.JSON(http.StatusBadRequest, gin.H{"error": err})
-		return
+	var jsonData []byte
+
+	if h.cryptoKey != "" {
+		var err error
+		jsonData, err = io.ReadAll(c.Request.Body)
+		if err != nil {
+			logger.Log.Debug("cannot read request body", zap.Error(err))
+			c.JSON(http.StatusBadRequest, gin.H{"error": err})
+			return
+		}
+
+		decrypted, err := utils.Decrypt(jsonData)
+		if err != nil {
+			logger.Log.Debug("cannot decrypt request body", zap.Error(err))
+			c.JSON(http.StatusBadRequest, gin.H{"error": err})
+			return
+		}
+
+		if err := json.Unmarshal(decrypted, &metrics); err != nil {
+			logger.Log.Debug("cannot unmarshal decrypted JSON body", zap.Error(err))
+			c.JSON(http.StatusBadRequest, gin.H{"error": err})
+			return
+		}
+		jsonData = decrypted
+	} else {
+		if err := c.ShouldBindJSON(&metrics); err != nil {
+			logger.Log.Debug("cannot decode request JSON body", zap.Error(err))
+			c.JSON(http.StatusBadRequest, gin.H{"error": err})
+			return
+		}
 	}
 
 	var expectedHash string
 	if h.hashKey != "" && hash != "" {
-		jsonData, err := json.Marshal(metrics)
-		if err != nil {
-			logger.Log.Debug("cannot marshal JSON body", zap.Error(err))
-			c.JSON(http.StatusBadRequest, gin.H{"error": err})
-			return
+		if len(jsonData) == 0 {
+			var err error
+			jsonData, err = json.Marshal(metrics)
+			if err != nil {
+				logger.Log.Debug("cannot marshal JSON body", zap.Error(err))
+				c.JSON(http.StatusBadRequest, gin.H{"error": err})
+				return
+			}
 		}
 
 		expectedHash = utils.GenerateSHA256Bytes(jsonData, h.hashKey)

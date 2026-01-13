@@ -293,9 +293,17 @@ func (a *Agent) sendOneMetric(mType, name string, value any) error {
 	}
 	logger.Log.Info("send request with body", zap.String("body", string(jsonData)))
 
+	var requestBytes = jsonData
+	if a.cfg.CryptoKey != "" {
+		requestBytes, err = utils.Encrypt(jsonData)
+		if err != nil {
+			return fmt.Errorf("failed to encrypt data: %w", err)
+		}
+	}
+
 	url := fmt.Sprintf("%s/update/", a.baseURL)
 	req := a.client.NewRequest().
-		SetBody(body).
+		SetBody(requestBytes).
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Accept-Encoding", "gzip")
 
@@ -318,9 +326,17 @@ func (a *Agent) sendBatchMetrics(metrics []model.Metrics) error {
 	}
 	logger.Log.Info("send request with body", zap.String("body", string(jsonData)))
 
+	var requestBytes = jsonData
+	if a.cfg.CryptoKey != "" {
+		requestBytes, err = utils.Encrypt(jsonData)
+		if err != nil {
+			return fmt.Errorf("failed to encrypt data: %w", err)
+		}
+	}
+
 	url := fmt.Sprintf("%s/updates/", a.baseURL)
 	req := a.client.NewRequest().
-		SetBody(metrics).
+		SetBody(requestBytes).
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Accept-Encoding", "gzip")
 
