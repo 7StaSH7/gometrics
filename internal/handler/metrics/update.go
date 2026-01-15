@@ -25,6 +25,10 @@ type UpdateMetricInput struct {
 func (h *metricsHandler) Update(c *gin.Context) {
 	c.Writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
+	if !h.validateIP(c) {
+		return
+	}
+
 	var input UpdateMetricInput
 	if err := c.ShouldBindUri(&input); err != nil {
 		c.AbortWithStatus(http.StatusBadRequest)
@@ -94,6 +98,10 @@ func (h *metricsHandler) decryptRequestBody(c *gin.Context) ([]byte, error) {
 }
 
 func (h *metricsHandler) UpdateJSON(c *gin.Context) {
+	if !h.validateIP(c) {
+		return
+	}
+
 	var hash string
 	if h.hashKey != "" {
 		hash = c.GetHeader("HashSHA256")
@@ -192,6 +200,10 @@ func (h *metricsHandler) UpdateJSON(c *gin.Context) {
 
 // Updates handles POST requests to update multiple metrics in batch.
 func (h *metricsHandler) Updates(c *gin.Context) {
+	if !h.validateIP(c) {
+		return
+	}
+
 	var hash string
 	if h.hashKey != "" {
 		hash = c.GetHeader("HashSHA256")

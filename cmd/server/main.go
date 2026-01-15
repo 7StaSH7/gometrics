@@ -86,7 +86,7 @@ func initDeps(ctx context.Context) (*config.ServerConfig, *gin.Engine, metricsse
 
 	pprof.Register(router)
 
-	mHan := metricshandler.New(mSer, cfg.Key, cfg.CryptoKey, auditSubject)
+	mHan := metricshandler.New(mSer, cfg.Key, cfg.CryptoKey, auditSubject, cfg.TrustedSubnet)
 	hHan := healthhandler.New(psqlPool)
 
 	mHan.Register(router)

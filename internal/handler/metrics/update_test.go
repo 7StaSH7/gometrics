@@ -872,3 +872,348 @@ func TestAuditErrorHandling(t *testing.T) {
 
 	mockService.AssertExpectations(t)
 }
+
+func setupRouterWithTrustedSubnet(trustedSubnet string) *gin.Engine {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+
+	mockService := new(MockMetricsService)
+	mockService.On("UpdateGauge", context.Background(), nil, "test", float64(123.45)).Return(nil)
+	mockService.On("UpdateCounter", context.Background(), nil, "test", int64(0)).Return(nil)
+	mockService.On("Updates", context.Background(), mock.Anything).Return(nil)
+	auditSubject := audit.NewAuditSubject()
+
+	handler := &metricsHandler{
+		metricsService: mockService,
+		trustedSubnet:  trustedSubnet,
+		audit:          auditSubject,
+	}
+
+	router.POST("/update/", handler.UpdateJSON)
+	router.POST("/updates/", handler.Updates)
+	router.POST("/update/:type/:name/:value", handler.Update)
+
+	return router
+}
+
+func TestTrustedSubnetValidation(t *testing.T) {
+	tests := []struct {
+		name           string
+		trustedSubnet  string
+		xRealIP        string
+		expectedStatus int
+	}{
+		{
+			name:           "empty trusted subnet - allows all IPs",
+			trustedSubnet:  "",
+			xRealIP:        "192.168.1.100",
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "IP in trusted subnet /24",
+			trustedSubnet:  "192.168.1.0/24",
+			xRealIP:        "192.168.1.50",
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "IP in trusted subnet /24 - edge case",
+			trustedSubnet:  "192.168.1.0/24",
+			xRealIP:        "192.168.1.255",
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "IP not in trusted subnet /24",
+			trustedSubnet:  "192.168.1.0/24",
+			xRealIP:        "192.168.2.100",
+			expectedStatus: http.StatusForbidden,
+		},
+		{
+			name:           "IP in trusted subnet /16",
+			trustedSubnet:  "10.0.0.0/16",
+			xRealIP:        "10.0.5.50",
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "IP not in trusted subnet /16",
+			trustedSubnet:  "10.0.0.0/16",
+			xRealIP:        "10.1.0.50",
+			expectedStatus: http.StatusForbidden,
+		},
+		{
+			name:           "single IP in trusted subnet",
+			trustedSubnet:  "192.168.1.100/32",
+			xRealIP:        "192.168.1.100",
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "different single IP not in trusted subnet",
+			trustedSubnet:  "192.168.1.100/32",
+			xRealIP:        "192.168.1.101",
+			expectedStatus: http.StatusForbidden,
+		},
+		{
+			name:           "localhost in trusted subnet",
+			trustedSubnet:  "127.0.0.0/8",
+			xRealIP:        "127.0.0.1",
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "localhost not in trusted subnet",
+			trustedSubnet:  "10.0.0.0/8",
+			xRealIP:        "127.0.0.1",
+			expectedStatus: http.StatusForbidden,
+		},
+		{
+			name:           "external IP not in private subnet",
+			trustedSubnet:  "192.168.0.0/16",
+			xRealIP:        "8.8.8.8",
+			expectedStatus: http.StatusForbidden,
+		},
+		{
+			name:           "IPv4 in IPv6-like subnet fails",
+			trustedSubnet:  "::1/128",
+			xRealIP:        "127.0.0.1",
+			expectedStatus: http.StatusForbidden,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			router := setupRouterWithTrustedSubnet(tt.trustedSubnet)
+
+			body := `{"id":"test","type":"gauge","value":123.45}`
+			req, err := http.NewRequest(http.MethodPost, "/update/", bytes.NewBufferString(body))
+			assert.NoError(t, err)
+			req.Header.Set("Content-Type", "application/json")
+			req.RemoteAddr = "127.0.0.1:8080"
+			if tt.xRealIP != "" {
+				req.Header.Set("X-Real-IP", tt.xRealIP)
+			}
+
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code, "Status code mismatch for trustedSubnet=%s, xRealIP=%s", tt.trustedSubnet, tt.xRealIP)
+		})
+	}
+}
+
+func TestTrustedSubnetValidationUpdateEndpoint(t *testing.T) {
+	tests := []struct {
+		name           string
+		trustedSubnet  string
+		xRealIP        string
+		expectedStatus int
+	}{
+		{
+			name:           "IP not in subnet returns 403",
+			trustedSubnet:  "192.168.1.0/24",
+			xRealIP:        "10.0.0.1",
+			expectedStatus: http.StatusForbidden,
+		},
+		{
+			name:           "IP in subnet proceeds to normal handling",
+			trustedSubnet:  "192.168.1.0/24",
+			xRealIP:        "192.168.1.100",
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "empty subnet allows request to proceed",
+			trustedSubnet:  "",
+			xRealIP:        "10.0.0.1",
+			expectedStatus: http.StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			router := setupRouterWithTrustedSubnet(tt.trustedSubnet)
+
+			req, err := http.NewRequest(http.MethodPost, "/update/gauge/test/123.45", nil)
+			assert.NoError(t, err)
+			req.RemoteAddr = "127.0.0.1:8080"
+			if tt.xRealIP != "" {
+				req.Header.Set("X-Real-IP", tt.xRealIP)
+			}
+
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code, "Status code mismatch")
+		})
+	}
+}
+
+func TestTrustedSubnetValidationUpdatesEndpoint(t *testing.T) {
+	tests := []struct {
+		name           string
+		trustedSubnet  string
+		xRealIP        string
+		expectedStatus int
+	}{
+		{
+			name:           "IP not in subnet returns 403",
+			trustedSubnet:  "192.168.1.0/24",
+			xRealIP:        "172.16.0.1",
+			expectedStatus: http.StatusForbidden,
+		},
+		{
+			name:           "IP in subnet proceeds to normal handling",
+			trustedSubnet:  "192.168.1.0/24",
+			xRealIP:        "192.168.1.50",
+			expectedStatus: http.StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			router := setupRouterWithTrustedSubnet(tt.trustedSubnet)
+
+			body := `[{"id":"test","type":"gauge","value":123.45}]`
+			req, err := http.NewRequest(http.MethodPost, "/updates/", bytes.NewBufferString(body))
+			assert.NoError(t, err)
+			req.Header.Set("Content-Type", "application/json")
+			req.RemoteAddr = "127.0.0.1:8080"
+			if tt.xRealIP != "" {
+				req.Header.Set("X-Real-IP", tt.xRealIP)
+			}
+
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code, "Status code mismatch")
+		})
+	}
+}
+
+func TestTrustedSubnetFallbackToRemoteAddr(t *testing.T) {
+	tests := []struct {
+		name           string
+		trustedSubnet  string
+		remoteAddr     string
+		expectedStatus int
+	}{
+		{
+			name:           "uses RemoteAddr when X-Real-IP not set and IP is valid",
+			trustedSubnet:  "192.168.1.0/24",
+			remoteAddr:     "192.168.1.100:8080",
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "rejects when RemoteAddr not in subnet and no X-Real-IP",
+			trustedSubnet:  "10.0.0.0/8",
+			remoteAddr:     "192.168.1.100:8080",
+			expectedStatus: http.StatusForbidden,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			router := setupRouterWithTrustedSubnet(tt.trustedSubnet)
+
+			body := `{"id":"test","type":"gauge","value":123.45}`
+			req, err := http.NewRequest(http.MethodPost, "/update/", bytes.NewBufferString(body))
+			assert.NoError(t, err)
+			req.Header.Set("Content-Type", "application/json")
+			req.RemoteAddr = tt.remoteAddr
+
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code, "Status code mismatch")
+		})
+	}
+}
+
+func TestTrustedSubnetValidationResponseBody(t *testing.T) {
+	router := setupRouterWithTrustedSubnet("192.168.1.0/24")
+
+	body := `{"id":"test","type":"gauge","value":123.45}`
+	req, err := http.NewRequest(http.MethodPost, "/update/", bytes.NewBufferString(body))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Real-IP", "10.0.0.1")
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusForbidden, w.Code)
+	assert.Contains(t, w.Body.String(), "forbidden")
+}
+
+func TestTrustedSubnetWithInvalidCIDR(t *testing.T) {
+	router := setupRouterWithTrustedSubnet("invalid-cidr")
+
+	body := `{"id":"test","type":"gauge","value":123.45}`
+	req, err := http.NewRequest(http.MethodPost, "/update/", bytes.NewBufferString(body))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Real-IP", "192.168.1.100")
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestValidateIPMethod(t *testing.T) {
+	tests := []struct {
+		name          string
+		trustedSubnet string
+		clientIP      string
+		expected      bool
+	}{
+		{
+			name:          "empty subnet - all IPs allowed",
+			trustedSubnet: "",
+			clientIP:      "192.168.1.100",
+			expected:      true,
+		},
+		{
+			name:          "IP in subnet",
+			trustedSubnet: "192.168.1.0/24",
+			clientIP:      "192.168.1.50",
+			expected:      true,
+		},
+		{
+			name:          "IP not in subnet",
+			trustedSubnet: "192.168.1.0/24",
+			clientIP:      "10.0.0.1",
+			expected:      false,
+		},
+		{
+			name:          "exact IP match /32",
+			trustedSubnet: "192.168.1.100/32",
+			clientIP:      "192.168.1.100",
+			expected:      true,
+		},
+		{
+			name:          "exact IP mismatch /32",
+			trustedSubnet: "192.168.1.100/32",
+			clientIP:      "192.168.1.101",
+			expected:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler := &metricsHandler{
+				trustedSubnet: tt.trustedSubnet,
+			}
+
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			c.Request, _ = http.NewRequest("POST", "/", nil)
+			c.Request.RemoteAddr = "127.0.0.1:8080"
+			if tt.clientIP != "" {
+				c.Request.Header.Set("X-Real-IP", tt.clientIP)
+			}
+
+			result := handler.validateIP(c)
+			if tt.expected {
+				assert.True(t, result, "Expected IP to be valid")
+			} else {
+				assert.False(t, result, "Expected IP to be invalid")
+			}
+		})
+	}
+}

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
+	"net"
 	"runtime"
 	"sync"
 	"time"
@@ -305,7 +306,8 @@ func (a *Agent) sendOneMetric(mType, name string, value any) error {
 	req := a.client.NewRequest().
 		SetBody(requestBytes).
 		SetHeader("Content-Type", "application/json").
-		SetHeader("Accept-Encoding", "gzip")
+		SetHeader("Accept-Encoding", "gzip").
+		SetHeader("X-Real-IP", getLocalIP())
 
 	if a.cfg.Key != "" {
 		hash := utils.GenerateSHA256(string(jsonData), a.cfg.Key)
@@ -338,7 +340,8 @@ func (a *Agent) sendBatchMetrics(metrics []model.Metrics) error {
 	req := a.client.NewRequest().
 		SetBody(requestBytes).
 		SetHeader("Content-Type", "application/json").
-		SetHeader("Accept-Encoding", "gzip")
+		SetHeader("Accept-Encoding", "gzip").
+		SetHeader("X-Real-IP", getLocalIP())
 
 	if a.cfg.Key != "" {
 		hash := utils.GenerateSHA256(string(jsonData), a.cfg.Key)
@@ -350,4 +353,19 @@ func (a *Agent) sendBatchMetrics(metrics []model.Metrics) error {
 	}
 
 	return nil
+}
+
+func getLocalIP() string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return "127.0.0.1"
+	}
+	for _, addr := range addrs {
+		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String()
+			}
+		}
+	}
+	return "127.0.0.1"
 }
