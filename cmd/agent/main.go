@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 
 	"github.com/7StaSH7/gometrics/internal/agent"
@@ -53,14 +52,10 @@ func main() {
 
 	sendJobs := make(chan func() error, cfg.Limit)
 
-	var wg sync.WaitGroup
-	wg.Add(cfg.Limit)
-
 	a.Start(sendJobs)
 
 	for w := 1; w <= cfg.Limit; w++ {
 		g.Go(func() error {
-			defer wg.Done()
 			worker(gCtx, w, sendJobs)
 			return nil
 		})
@@ -75,8 +70,6 @@ func main() {
 		logger.Log.Error("something went wrong", zap.Error(err))
 		return
 	}
-
-	wg.Wait()
 }
 
 func worker(ctx context.Context, id int, jobs <-chan func() error) {
