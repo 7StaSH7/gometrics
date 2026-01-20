@@ -15,11 +15,15 @@ import (
 	"github.com/7StaSH7/gometrics/internal/config"
 	"github.com/7StaSH7/gometrics/internal/logger"
 	"github.com/7StaSH7/gometrics/internal/model"
+	metricspb "github.com/7StaSH7/gometrics/internal/proto/metrics"
 	"github.com/7StaSH7/gometrics/internal/utils"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/mem"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 	"resty.dev/v3"
 )
 
@@ -36,6 +40,9 @@ type MetricsMap map[string]any
 type Agent struct {
 	client  *resty.Client
 	baseURL string
+
+	grpcConn   *grpc.ClientConn
+	grpcClient metricspb.MetricsClient
 
 	ctx context.Context
 	cfg *config.AgentConfig
@@ -98,10 +105,14 @@ func New(ctx context.Context, group *errgroup.Group, cfg *config.AgentConfig) Ag
 		SetRetryWaitTime(1 * time.Second).
 		SetRetryMaxWaitTime(5 * time.Second)
 
+	grpcConn, grpcClient := newGRPCClient(cfg.GRPCAddress)
+
 	return &Agent{
-		client:  client,
-		baseURL: fmt.Sprintf("http://%s", cfg.Address),
-		cfg:     cfg,
+		client:     client,
+		baseURL:    fmt.Sprintf("http://%s", cfg.Address),
+		grpcConn:   grpcConn,
+		grpcClient: grpcClient,
+		cfg:        cfg,
 
 		metrics: make(MetricsMap),
 		ctx:     ctx,
@@ -156,8 +167,14 @@ func (a *Agent) SendMetricsBatch() error {
 	}
 
 	if len(metricsBatch) > 0 {
-		if err := a.sendBatchMetrics(metricsBatch); err != nil {
-			return fmt.Errorf("error sending metrics %+v", err)
+		if a.grpcClient != nil {
+			if err := a.sendBatchMetricsGRPC(metricsBatch); err != nil {
+				return fmt.Errorf("error sending gRPC metrics %+v", err)
+			}
+		} else {
+			if err := a.sendBatchMetrics(metricsBatch); err != nil {
+				return fmt.Errorf("error sending metrics %+v", err)
+			}
 		}
 	}
 
@@ -266,7 +283,16 @@ func (a *Agent) Start(sendJobs chan func() error) {
 
 // Close closes the agent's HTTP client.
 func (a *Agent) Close() error {
-	return a.client.Close()
+	var err error
+	if a.grpcConn != nil {
+		if closeErr := a.grpcConn.Close(); closeErr != nil {
+			err = closeErr
+		}
+	}
+	if closeErr := a.client.Close(); closeErr != nil && err == nil {
+		err = closeErr
+	}
+	return err
 }
 
 func (a *Agent) sendOneMetric(mType, name string, value any) error {
@@ -353,6 +379,75 @@ func (a *Agent) sendBatchMetrics(metrics []model.Metrics) error {
 	}
 
 	return nil
+}
+
+func (a *Agent) sendBatchMetricsGRPC(metrics []model.Metrics) error {
+	if a.grpcClient == nil {
+		return errors.New("grpc client is not configured")
+	}
+
+	pbMetrics := make([]*metricspb.Metric, 0, len(metrics))
+	for _, metric := range metrics {
+		pbMetric, err := toProtoMetric(metric)
+		if err != nil {
+			return err
+		}
+		pbMetrics = append(pbMetrics, pbMetric)
+	}
+
+	req := &metricspb.UpdateMetricsRequest{}
+	req.SetMetrics(pbMetrics)
+	ctx := metadata.NewOutgoingContext(a.ctx, metadata.Pairs("x-real-ip", getLocalIP()))
+	if _, err := a.grpcClient.UpdateMetrics(ctx, req); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func newGRPCClient(address string) (*grpc.ClientConn, metricspb.MetricsClient) {
+	if address == "" {
+		return nil, nil
+	}
+
+	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		logger.Log.Error("failed to connect to gRPC server", zap.Error(err))
+		return nil, nil
+	}
+
+	return conn, metricspb.NewMetricsClient(conn)
+}
+
+func toProtoMetric(metric model.Metrics) (*metricspb.Metric, error) {
+	switch metric.MType {
+	case model.Gauge:
+		value := 0.0
+		if metric.Value != nil {
+			value = *metric.Value
+		}
+		pMetric := metricspb.Metric_builder{
+			Id:    metric.ID,
+			Type:  metricspb.Metric_GAUGE,
+			Value: value,
+		}.Build()
+
+		return pMetric, nil
+	case model.Counter:
+		delta := int64(0)
+		if metric.Delta != nil {
+			delta = *metric.Delta
+		}
+		pMetric := metricspb.Metric_builder{
+			Id:    metric.ID,
+			Type:  metricspb.Metric_COUNTER,
+			Value: float64(delta),
+		}.Build()
+
+		return pMetric, nil
+	default:
+		return nil, fmt.Errorf("unknown metric type %s", metric.MType)
+	}
 }
 
 func getLocalIP() string {

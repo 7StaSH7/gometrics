@@ -12,6 +12,7 @@ import (
 // AgentConfig holds configuration for the metrics agent.
 type AgentConfig struct {
 	Address        string `env:"ADDRESS"`
+	GRPCAddress    string `env:"GRPC_ADDRESS"`
 	PollInterval   int    `env:"POLL_INTERVAL"`
 	ReportInterval int    `env:"REPORT_INTERVAL"`
 	Key            string `env:"KEY"`
@@ -28,6 +29,7 @@ func NewAgentConfig() *AgentConfig {
 	flag.StringVar(&configPath, "config", "", "path to JSON config file")
 
 	flag.StringVar(&cfg.Address, "a", "localhost:8080", "address to send metrics to")
+	flag.StringVar(&cfg.GRPCAddress, "grpc-address", "", "gRPC address to send metrics to")
 	flag.IntVar(&cfg.ReportInterval, "r", 10, "report interval")
 	flag.IntVar(&cfg.PollInterval, "p", 2, "poll interval")
 	flag.StringVar(&cfg.Key, "k", "", "key to calculate auth hash")
@@ -46,6 +48,9 @@ func NewAgentConfig() *AgentConfig {
 		} else {
 			if jsonCfg.Address != "" {
 				cfg.Address = jsonCfg.Address
+			}
+			if jsonCfg.GRPCAddress != "" {
+				cfg.GRPCAddress = jsonCfg.GRPCAddress
 			}
 			if jsonCfg.ReportInterval != "" {
 				cfg.ReportInterval = parseDuration(jsonCfg.ReportInterval)

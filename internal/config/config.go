@@ -13,6 +13,7 @@ import (
 type ServerConfig struct {
 	LogLevel      string `env:"LOG_LEVEL"`
 	Address       string `env:"ADDRESS"`
+	GRPCAddress   string `env:"GRPC_ADDRESS"`
 	StoreInterval int    `env:"STORE_INTERVAL"`
 	StoreFilePath string `env:"FILE_STORAGE_PATH"`
 	Restore       bool   `env:"RESTORE"`
@@ -34,6 +35,7 @@ func NewServerConfig() (*ServerConfig, *db.PostgresConfig) {
 
 	flag.StringVar(&cfg.LogLevel, "l", "info", "log level")
 	flag.StringVar(&cfg.Address, "a", "localhost:8080", "address to listen on")
+	flag.StringVar(&cfg.GRPCAddress, "grpc-address", "", "gRPC address to listen on")
 	flag.IntVar(&cfg.StoreInterval, "i", 300, "interval to store metrics to file")
 	flag.StringVar(&cfg.StoreFilePath, "f", "metrics.json", "path to json file to store metrics")
 	flag.BoolVar(&cfg.Restore, "r", false, "if need to restore from file first")
@@ -59,6 +61,9 @@ func NewServerConfig() (*ServerConfig, *db.PostgresConfig) {
 		} else {
 			if jsonCfg.Address != "" {
 				cfg.Address = jsonCfg.Address
+			}
+			if jsonCfg.GRPCAddress != "" {
+				cfg.GRPCAddress = jsonCfg.GRPCAddress
 			}
 			cfg.Restore = jsonCfg.Restore
 			if jsonCfg.StoreInterval != "" {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -10,16 +11,18 @@ import (
 	"syscall"
 
 	"github.com/gin-contrib/pprof"
+	"google.golang.org/grpc"
 
 	"github.com/7StaSH7/gometrics/internal/audit"
 	"github.com/7StaSH7/gometrics/internal/config"
 	dbconfig "github.com/7StaSH7/gometrics/internal/config/db"
-	databaserepository "github.com/7StaSH7/gometrics/internal/repository/db"
-
+	"github.com/7StaSH7/gometrics/internal/grpcserver"
 	healthhandler "github.com/7StaSH7/gometrics/internal/handler/health"
 	metricshandler "github.com/7StaSH7/gometrics/internal/handler/metrics"
 	"github.com/7StaSH7/gometrics/internal/logger"
 	"github.com/7StaSH7/gometrics/internal/middleware"
+	metricspb "github.com/7StaSH7/gometrics/internal/proto/metrics"
+	databaserepository "github.com/7StaSH7/gometrics/internal/repository/db"
 	storagerepositsory "github.com/7StaSH7/gometrics/internal/repository/storage"
 	metricsservice "github.com/7StaSH7/gometrics/internal/service/metrics"
 	"github.com/7StaSH7/gometrics/internal/storage"
@@ -116,6 +119,29 @@ func run() error {
 		BaseContext: func(_ net.Listener) context.Context {
 			return gCtx
 		},
+	}
+
+	if cfg.GRPCAddress != "" {
+		listener, err := net.Listen("tcp", cfg.GRPCAddress)
+		if err != nil {
+			return fmt.Errorf("grpc listen error: %w", err)
+		}
+		grpcServer := grpc.NewServer(grpc.UnaryInterceptor(grpcserver.TrustedSubnetInterceptor(cfg.TrustedSubnet)))
+		metricspb.RegisterMetricsServer(grpcServer, grpcserver.NewMetricsServer(ser))
+
+		g.Go(func() error {
+			logger.Log.Info("grpc server started", zap.String("address", cfg.GRPCAddress))
+			if err := grpcServer.Serve(listener); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
+				return err
+			}
+			return nil
+		})
+
+		g.Go(func() error {
+			<-gCtx.Done()
+			grpcServer.GracefulStop()
+			return nil
+		})
 	}
 
 	if cfg.StoreInterval != 0 {
