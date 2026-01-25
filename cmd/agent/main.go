@@ -45,8 +45,16 @@ func main() {
 
 	g, gCtx := errgroup.WithContext(ctx)
 
-	a := agent.New(gCtx, g, cfg)
-	defer a.Close()
+	a, err := agent.New(gCtx, g, cfg)
+	if err != nil {
+		logger.Log.Error("failed to initialize agent", zap.Error(err))
+		return
+	}
+	defer func() {
+		if closeErr := a.Close(); closeErr != nil {
+			logger.Log.Error("failed to close agent", zap.Error(closeErr))
+		}
+	}()
 
 	logger.Log.Info("agent started", zap.Any("config", cfg))
 

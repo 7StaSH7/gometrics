@@ -14,11 +14,13 @@ import (
 )
 
 type metricsHandler struct {
-	metricsService metrics.MetricsService
-	hashKey        string
-	cryptoKey      string
-	audit          *audit.AuditSubject
-	trustedSubnet  string
+	metricsService   metrics.MetricsService
+	hashKey          string
+	cryptoKey        string
+	audit            *audit.AuditSubject
+	trustedSubnet    string
+	trustedSubnetNet *net.IPNet
+	trustedSubnetErr error
 }
 
 // MetricsHandler defines the interface for handling metric-related HTTP requests,
@@ -38,12 +40,23 @@ type MetricsHandler interface {
 
 // New creates a new MetricsHandler with the given metrics service, hash key, crypto key, and audit subject.
 func New(s metrics.MetricsService, key string, cryptoKey string, asub *audit.AuditSubject, trustedSubnet string) MetricsHandler {
+	var trustedSubnetNet *net.IPNet
+	var trustedSubnetErr error
+	if trustedSubnet != "" {
+		_, trustedSubnetNet, trustedSubnetErr = net.ParseCIDR(trustedSubnet)
+		if trustedSubnetErr != nil {
+			logger.Log.Error("invalid trusted subnet", zap.Error(trustedSubnetErr))
+		}
+	}
+
 	return &metricsHandler{
-		metricsService: s,
-		hashKey:        key,
-		cryptoKey:      cryptoKey,
-		audit:          asub,
-		trustedSubnet:  trustedSubnet,
+		metricsService:   s,
+		hashKey:          key,
+		cryptoKey:        cryptoKey,
+		audit:            asub,
+		trustedSubnet:    trustedSubnet,
+		trustedSubnetNet: trustedSubnetNet,
+		trustedSubnetErr: trustedSubnetErr,
 	}
 }
 
@@ -56,10 +69,15 @@ func (h *metricsHandler) auditEvent(ctx context.Context, metrics []string, ip st
 		}
 	}
 }
-// validateIP parses and validates X-Real-IP header to be CIDR format.
+
+// validateIP validates X-Real-IP header against the trusted subnet.
 func (h *metricsHandler) validateIP(c *gin.Context) bool {
 	if h.trustedSubnet == "" {
 		return true
+	}
+
+	if h.trustedSubnetErr != nil {
+		return false
 	}
 
 	clientIP := c.GetHeader("X-Real-IP")
@@ -67,14 +85,13 @@ func (h *metricsHandler) validateIP(c *gin.Context) bool {
 		clientIP = c.ClientIP()
 	}
 
-	_, ipNet, err := net.ParseCIDR(h.trustedSubnet)
-	if err != nil {
-		logger.Log.Error("invalid trusted subnet", zap.Error(err))
+	if h.trustedSubnetNet == nil {
+		logger.Log.Error("trusted subnet is not initialized", zap.String("subnet", h.trustedSubnet))
 		return false
 	}
 
 	ip := net.ParseIP(clientIP)
-	if ip == nil || !ipNet.Contains(ip) {
+	if ip == nil || !h.trustedSubnetNet.Contains(ip) {
 		logger.Log.Warn("IP not in trusted subnet", zap.String("ip", clientIP), zap.String("subnet", h.trustedSubnet))
 		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 		return false

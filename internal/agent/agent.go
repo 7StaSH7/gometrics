@@ -43,6 +43,7 @@ type Agent struct {
 
 	grpcConn   *grpc.ClientConn
 	grpcClient metricspb.MetricsClient
+	localIP    string
 
 	ctx context.Context
 	cfg *config.AgentConfig
@@ -65,7 +66,7 @@ type AgentInterface interface {
 }
 
 // New creates a new Agent with the given context, errgroup, and config.
-func New(ctx context.Context, group *errgroup.Group, cfg *config.AgentConfig) AgentInterface {
+func New(ctx context.Context, group *errgroup.Group, cfg *config.AgentConfig) (AgentInterface, error) {
 	client := resty.New().
 		AddRetryConditions(
 			func(res *resty.Response, err error) bool {
@@ -105,19 +106,25 @@ func New(ctx context.Context, group *errgroup.Group, cfg *config.AgentConfig) Ag
 		SetRetryWaitTime(1 * time.Second).
 		SetRetryMaxWaitTime(5 * time.Second)
 
-	grpcConn, grpcClient := newGRPCClient(cfg.GRPCAddress)
+	grpcConn, grpcClient, err := newGRPCClient(cfg.GRPCAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	localIP := getLocalIP()
 
 	return &Agent{
 		client:     client,
 		baseURL:    fmt.Sprintf("http://%s", cfg.Address),
 		grpcConn:   grpcConn,
 		grpcClient: grpcClient,
+		localIP:    localIP,
 		cfg:        cfg,
 
 		metrics: make(MetricsMap),
 		ctx:     ctx,
 		g:       group,
-	}
+	}, nil
 }
 
 // SendMetrics sends all collected metrics one by one.
@@ -281,16 +288,14 @@ func (a *Agent) Start(sendJobs chan func() error) {
 	})
 }
 
-// Close closes the agent's HTTP client.
+// Close closes the agent's gRPC and HTTP clients.
 func (a *Agent) Close() error {
 	var err error
 	if a.grpcConn != nil {
-		if closeErr := a.grpcConn.Close(); closeErr != nil {
-			err = closeErr
-		}
+		err = errors.Join(err, a.grpcConn.Close())
 	}
-	if closeErr := a.client.Close(); closeErr != nil && err == nil {
-		err = closeErr
+	if a.client != nil {
+		err = errors.Join(err, a.client.Close())
 	}
 	return err
 }
@@ -333,7 +338,7 @@ func (a *Agent) sendOneMetric(mType, name string, value any) error {
 		SetBody(requestBytes).
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Accept-Encoding", "gzip").
-		SetHeader("X-Real-IP", getLocalIP())
+		SetHeader("X-Real-IP", a.localIP)
 
 	if a.cfg.Key != "" {
 		hash := utils.GenerateSHA256(string(jsonData), a.cfg.Key)
@@ -367,7 +372,7 @@ func (a *Agent) sendBatchMetrics(metrics []model.Metrics) error {
 		SetBody(requestBytes).
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Accept-Encoding", "gzip").
-		SetHeader("X-Real-IP", getLocalIP())
+		SetHeader("X-Real-IP", a.localIP)
 
 	if a.cfg.Key != "" {
 		hash := utils.GenerateSHA256(string(jsonData), a.cfg.Key)
@@ -397,7 +402,7 @@ func (a *Agent) sendBatchMetricsGRPC(metrics []model.Metrics) error {
 
 	req := &metricspb.UpdateMetricsRequest{}
 	req.SetMetrics(pbMetrics)
-	ctx := metadata.NewOutgoingContext(a.ctx, metadata.Pairs("x-real-ip", getLocalIP()))
+	ctx := metadata.NewOutgoingContext(a.ctx, metadata.Pairs("x-real-ip", a.localIP))
 	if _, err := a.grpcClient.UpdateMetrics(ctx, req); err != nil {
 		return err
 	}
@@ -405,18 +410,17 @@ func (a *Agent) sendBatchMetricsGRPC(metrics []model.Metrics) error {
 	return nil
 }
 
-func newGRPCClient(address string) (*grpc.ClientConn, metricspb.MetricsClient) {
+func newGRPCClient(address string) (*grpc.ClientConn, metricspb.MetricsClient, error) {
 	if address == "" {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		logger.Log.Error("failed to connect to gRPC server", zap.Error(err))
-		return nil, nil
+		return nil, nil, errors.Join(fmt.Errorf("failed to connect to gRPC server %q: %w", address, err))
 	}
 
-	return conn, metricspb.NewMetricsClient(conn)
+	return conn, metricspb.NewMetricsClient(conn), nil
 }
 
 func toProtoMetric(metric model.Metrics) (*metricspb.Metric, error) {
