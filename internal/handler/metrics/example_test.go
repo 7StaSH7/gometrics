@@ -21,7 +21,7 @@ func ExampleMetricsHandler_Update() {
 	// Setup
 	storageRepo := storage.NewMemStorageRepository(memStorage.NewStorage(&config.ServerConfig{}))
 	service := metricsService.New(storageRepo, nil)
-	handler := metricsHandler.New(service, "", "", nil)
+	handler := metricsHandler.New(service, "", "", nil, "")
 	healthHandler := health.New(nil)
 
 	r := gin.Default()
@@ -43,7 +43,7 @@ func ExampleMetricsHandler_GetOne() {
 	// Setup (similar to above)
 	storageRepo := storage.NewMemStorageRepository(memStorage.NewStorage(&config.ServerConfig{}))
 	service := metricsService.New(storageRepo, nil)
-	handler := metricsHandler.New(service, "", "", nil)
+	handler := metricsHandler.New(service, "", "", nil, "")
 	healthHandler := health.New(nil)
 
 	r := gin.Default()
@@ -71,7 +71,7 @@ func ExampleMetricsHandler_GetOne() {
 func ExampleMetricsHandler_UpdateJSON() {
 	storageRepo := storage.NewMemStorageRepository(memStorage.NewStorage(&config.ServerConfig{}))
 	service := metricsService.New(storageRepo, nil)
-	handler := metricsHandler.New(service, "", "", nil)
+	handler := metricsHandler.New(service, "", "", nil, "")
 	healthHandler := health.New(nil)
 
 	r := gin.Default()
@@ -99,7 +99,7 @@ func ExampleMetricsHandler_UpdateJSON() {
 func ExampleMetricsHandler_GetJSON() {
 	storageRepo := storage.NewMemStorageRepository(memStorage.NewStorage(&config.ServerConfig{}))
 	service := metricsService.New(storageRepo, nil)
-	handler := metricsHandler.New(service, "", "", nil)
+	handler := metricsHandler.New(service, "", "", nil, "")
 	healthHandler := health.New(nil)
 
 	r := gin.Default()
@@ -135,7 +135,7 @@ func ExampleMetricsHandler_GetJSON() {
 func ExampleMetricsHandler_Updates() {
 	storageRepo := storage.NewMemStorageRepository(memStorage.NewStorage(&config.ServerConfig{}))
 	service := metricsService.New(storageRepo, nil)
-	handler := metricsHandler.New(service, "", "", nil)
+	handler := metricsHandler.New(service, "", "", nil, "")
 	healthHandler := health.New(nil)
 
 	r := gin.Default()
@@ -170,7 +170,7 @@ func ExampleMetricsHandler_Updates() {
 func ExampleMetricsHandler_GetMany() {
 	storageRepo := storage.NewMemStorageRepository(memStorage.NewStorage(&config.ServerConfig{}))
 	service := metricsService.New(storageRepo, nil)
-	handler := metricsHandler.New(service, "", "", nil)
+	handler := metricsHandler.New(service, "", "", nil, "")
 	healthHandler := health.New(nil)
 
 	r := gin.Default()

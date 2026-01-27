@@ -256,3 +256,158 @@ func TestCryptoWithoutKeys(t *testing.T) {
 		}
 	})
 }
+
+func TestCryptoService(t *testing.T) {
+	keys := generateTestKeys(t)
+
+	service := NewCryptoService()
+
+	t.Run("LoadPublicKey", func(t *testing.T) {
+		err := service.LoadPublicKey(keys.publicKeyFile)
+		if err != nil {
+			t.Errorf("LoadPublicKey() error = %v", err)
+		}
+		if service.publicKey == nil {
+			t.Error("LoadPublicKey() returned nil key")
+		}
+	})
+
+	t.Run("LoadPublicKey_FileNotFound", func(t *testing.T) {
+		s := NewCryptoService()
+		err := s.LoadPublicKey(filepath.Join(keys.publicKeyFile, "..", "nonexistent.pem"))
+		if err == nil {
+			t.Error("LoadPublicKey() expected error for non-existent file, got nil")
+		}
+	})
+
+	t.Run("LoadPrivateKey", func(t *testing.T) {
+		err := service.LoadPrivateKey(keys.privateKeyFile)
+		if err != nil {
+			t.Errorf("LoadPrivateKey() error = %v", err)
+		}
+		if service.privateKey == nil {
+			t.Error("LoadPrivateKey() returned nil key")
+		}
+	})
+
+	t.Run("LoadPrivateKey_FileNotFound", func(t *testing.T) {
+		s := NewCryptoService()
+		err := s.LoadPrivateKey(filepath.Join(keys.privateKeyFile, "..", "nonexistent.pem"))
+		if err == nil {
+			t.Error("LoadPrivateKey() expected error for non-existent file, got nil")
+		}
+	})
+
+	t.Run("EncryptDecrypt", func(t *testing.T) {
+		s := NewCryptoService()
+		if err := s.LoadPublicKey(keys.publicKeyFile); err != nil {
+			t.Fatalf("failed to load public key: %v", err)
+		}
+		if err := s.LoadPrivateKey(keys.privateKeyFile); err != nil {
+			t.Fatalf("failed to load private key: %v", err)
+		}
+
+		testData := []byte("test message for CryptoService encryption")
+		encrypted, err := s.Encrypt(testData)
+		if err != nil {
+			t.Errorf("Encrypt() error = %v", err)
+			return
+		}
+
+		if len(encrypted) == 0 {
+			t.Error("Encrypt() returned empty data")
+			return
+		}
+
+		decrypted, err := s.Decrypt(encrypted)
+		if err != nil {
+			t.Errorf("Decrypt() error = %v", err)
+			return
+		}
+
+		if string(decrypted) != string(testData) {
+			t.Errorf("Decrypt() = %v, want %v", string(decrypted), string(testData))
+		}
+	})
+
+	t.Run("EncryptDecrypt_LargeData", func(t *testing.T) {
+		s := NewCryptoService()
+		if err := s.LoadPublicKey(keys.publicKeyFile); err != nil {
+			t.Fatalf("failed to load public key: %v", err)
+		}
+		if err := s.LoadPrivateKey(keys.privateKeyFile); err != nil {
+			t.Fatalf("failed to load private key: %v", err)
+		}
+
+		testData := make([]byte, 190)
+		for i := range testData {
+			testData[i] = byte(i % 256)
+		}
+
+		encrypted, err := s.Encrypt(testData)
+		if err != nil {
+			t.Errorf("Encrypt() error for large data = %v", err)
+			return
+		}
+
+		decrypted, err := s.Decrypt(encrypted)
+		if err != nil {
+			t.Errorf("Decrypt() error for large data = %v", err)
+			return
+		}
+
+		if string(decrypted) != string(testData) {
+			t.Error("Decrypt() large data mismatch")
+		}
+	})
+
+	t.Run("EncryptToBase64_DecryptFromBase64", func(t *testing.T) {
+		s := NewCryptoService()
+		if err := s.LoadPublicKey(keys.publicKeyFile); err != nil {
+			t.Fatalf("failed to load public key: %v", err)
+		}
+		if err := s.LoadPrivateKey(keys.privateKeyFile); err != nil {
+			t.Fatalf("failed to load private key: %v", err)
+		}
+
+		testData := []byte("test message for base64 encoding")
+		encryptedBase64, err := s.EncryptToBase64(testData)
+		if err != nil {
+			t.Errorf("EncryptToBase64() error = %v", err)
+			return
+		}
+
+		if encryptedBase64 == "" {
+			t.Error("EncryptToBase64() returned empty string")
+			return
+		}
+
+		decrypted, err := s.DecryptFromBase64(encryptedBase64)
+		if err != nil {
+			t.Errorf("DecryptFromBase64() error = %v", err)
+			return
+		}
+
+		if string(decrypted) != string(testData) {
+			t.Errorf("DecryptFromBase64() = %v, want %v", string(decrypted), string(testData))
+		}
+	})
+
+	t.Run("EncryptWithoutPublicKey", func(t *testing.T) {
+		s := NewCryptoService()
+		testData := []byte("test data")
+		_, err := s.Encrypt(testData)
+		if err == nil {
+			t.Error("Encrypt() expected error without public key, got nil")
+		}
+	})
+
+	t.Run("DecryptWithoutPrivateKey", func(t *testing.T) {
+		s := NewCryptoService()
+		testData := []byte("encrypted data")
+		_, err := s.Decrypt(testData)
+		if err == nil {
+			t.Error("Decrypt() expected error without private key, got nil")
+		}
+	})
+}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 
 	"github.com/7StaSH7/gometrics/internal/agent"
@@ -46,21 +45,25 @@ func main() {
 
 	g, gCtx := errgroup.WithContext(ctx)
 
-	a := agent.New(gCtx, g, cfg)
-	defer a.Close()
+	a, err := agent.New(gCtx, g, cfg)
+	if err != nil {
+		logger.Log.Error("failed to initialize agent", zap.Error(err))
+		return
+	}
+	defer func() {
+		if closeErr := a.Close(); closeErr != nil {
+			logger.Log.Error("failed to close agent", zap.Error(closeErr))
+		}
+	}()
 
 	logger.Log.Info("agent started", zap.Any("config", cfg))
 
 	sendJobs := make(chan func() error, cfg.Limit)
 
-	var wg sync.WaitGroup
-	wg.Add(cfg.Limit)
-
 	a.Start(sendJobs)
 
 	for w := 1; w <= cfg.Limit; w++ {
 		g.Go(func() error {
-			defer wg.Done()
 			worker(gCtx, w, sendJobs)
 			return nil
 		})
@@ -75,8 +78,6 @@ func main() {
 		logger.Log.Error("something went wrong", zap.Error(err))
 		return
 	}
-
-	wg.Wait()
 }
 
 func worker(ctx context.Context, id int, jobs <-chan func() error) {

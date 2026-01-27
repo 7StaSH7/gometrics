@@ -13,6 +13,7 @@ import (
 type ServerConfig struct {
 	LogLevel      string `env:"LOG_LEVEL"`
 	Address       string `env:"ADDRESS"`
+	GRPCAddress   string `env:"GRPC_ADDRESS"`
 	StoreInterval int    `env:"STORE_INTERVAL"`
 	StoreFilePath string `env:"FILE_STORAGE_PATH"`
 	Restore       bool   `env:"RESTORE"`
@@ -20,6 +21,7 @@ type ServerConfig struct {
 	AuditFile     string `env:"AUDIT_FILE"`
 	AuditURL      string `env:"AUDIT_URL"`
 	CryptoKey     string `env:"CRYPTO_KEY"`
+	TrustedSubnet string `env:"TRUSTED_SUBNET"`
 }
 
 // NewServerConfig creates and parses the server configuration.
@@ -33,6 +35,7 @@ func NewServerConfig() (*ServerConfig, *db.PostgresConfig) {
 
 	flag.StringVar(&cfg.LogLevel, "l", "info", "log level")
 	flag.StringVar(&cfg.Address, "a", "localhost:8080", "address to listen on")
+	flag.StringVar(&cfg.GRPCAddress, "grpc-address", "", "gRPC address to listen on")
 	flag.IntVar(&cfg.StoreInterval, "i", 300, "interval to store metrics to file")
 	flag.StringVar(&cfg.StoreFilePath, "f", "metrics.json", "path to json file to store metrics")
 	flag.BoolVar(&cfg.Restore, "r", false, "if need to restore from file first")
@@ -40,6 +43,8 @@ func NewServerConfig() (*ServerConfig, *db.PostgresConfig) {
 	flag.StringVar(&cfg.AuditFile, "audit-file", "", "filepath to store audit events")
 	flag.StringVar(&cfg.AuditURL, "audit-url", "", "url to send audit events")
 	flag.StringVar(&cfg.CryptoKey, "crypto-key", "", "path to private key file for decryption")
+	flag.StringVar(&cfg.TrustedSubnet, "t", "", "trusted subnet in CIDR notation")
+	flag.StringVar(&cfg.TrustedSubnet, "trusted-subnet", "", "trusted subnet in CIDR notation")
 
 	flag.StringVar(&psqlCfg.URL, "d", "postgres://postgres:postgres@localhost:5432/metrics?search_path=public&sslmode=disable", "url for postgres db connection")
 
@@ -57,6 +62,9 @@ func NewServerConfig() (*ServerConfig, *db.PostgresConfig) {
 			if jsonCfg.Address != "" {
 				cfg.Address = jsonCfg.Address
 			}
+			if jsonCfg.GRPCAddress != "" {
+				cfg.GRPCAddress = jsonCfg.GRPCAddress
+			}
 			cfg.Restore = jsonCfg.Restore
 			if jsonCfg.StoreInterval != "" {
 				cfg.StoreInterval = parseDuration(jsonCfg.StoreInterval)
@@ -69,6 +77,9 @@ func NewServerConfig() (*ServerConfig, *db.PostgresConfig) {
 			}
 			if jsonCfg.CryptoKey != "" {
 				cfg.CryptoKey = jsonCfg.CryptoKey
+			}
+			if jsonCfg.TrustedSubnet != "" {
+				cfg.TrustedSubnet = jsonCfg.TrustedSubnet
 			}
 		}
 	}

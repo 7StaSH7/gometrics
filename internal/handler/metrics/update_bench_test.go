@@ -22,7 +22,7 @@ func BenchmarkUpdateJSON(b *testing.B) {
 	storRep := storagerepositsory.NewMemStorageRepository(stor)
 	mSer := metricsservice.New(storRep, nil)
 	auditSubject := audit.NewAuditSubject()
-	handler := New(mSer, "", "", auditSubject)
+	handler := New(mSer, "", "", auditSubject, "")
 
 	router := gin.New()
 	handler.Register(router)
@@ -52,7 +52,7 @@ func BenchmarkUpdateJSONWithHash(b *testing.B) {
 	storRep := storagerepositsory.NewMemStorageRepository(stor)
 	mSer := metricsservice.New(storRep, nil)
 	auditSubject := audit.NewAuditSubject()
-	handler := New(mSer, "secret-key", "", auditSubject)
+	handler := New(mSer, "secret-key", "", auditSubject, "")
 
 	router := gin.New()
 	handler.Register(router)
@@ -83,7 +83,7 @@ func BenchmarkUpdates(b *testing.B) {
 	storRep := storagerepositsory.NewMemStorageRepository(stor)
 	mSer := metricsservice.New(storRep, nil)
 	auditSubject := audit.NewAuditSubject()
-	handler := New(mSer, "", "", auditSubject)
+	handler := New(mSer, "", "", auditSubject, "")
 
 	router := gin.New()
 	handler.Register(router)

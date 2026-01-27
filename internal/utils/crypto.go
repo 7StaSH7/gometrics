@@ -15,6 +15,151 @@ import (
 	"go.uber.org/zap"
 )
 
+// CryptoService provides RSA encryption and decryption operations.
+// It is safe for concurrent use and can be injected for testing purposes.
+type CryptoService struct {
+	privateKey *rsa.PrivateKey
+	publicKey  *rsa.PublicKey
+}
+
+// NewCryptoService creates a new instance of CryptoService.
+func NewCryptoService() *CryptoService {
+	return &CryptoService{}
+}
+
+// LoadPublicKey loads an RSA public key from a PEM file.
+func (s *CryptoService) LoadPublicKey(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	block, _ := pem.Decode(data)
+	if block == nil {
+		return errors.New("failed to decode PEM block")
+	}
+
+	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return err
+	}
+
+	rsaPub, ok := pub.(*rsa.PublicKey)
+	if !ok {
+		return errors.New("not an RSA public key")
+	}
+
+	s.publicKey = rsaPub
+	return nil
+}
+
+// LoadPrivateKey loads an RSA private key from a PEM file.
+func (s *CryptoService) LoadPrivateKey(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	block, _ := pem.Decode(data)
+	if block == nil {
+		return errors.New("failed to decode PEM block")
+	}
+
+	priv, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if err != nil {
+		return err
+	}
+
+	rsaPriv, ok := priv.(*rsa.PrivateKey)
+	if !ok {
+		return errors.New("not an RSA private key")
+	}
+
+	s.privateKey = rsaPriv
+	return nil
+}
+
+// Encrypt encrypts data using RSA OAEP with SHA-256 hash and the loaded public key.
+func (s *CryptoService) Encrypt(data []byte) ([]byte, error) {
+	if s.publicKey == nil {
+		return nil, errors.New("public key not loaded")
+	}
+
+	hash := sha256.New()
+	encrypted, err := rsa.EncryptOAEP(
+		hash,
+		rand.Reader,
+		s.publicKey,
+		data,
+		nil,
+	)
+	if err != nil {
+		logger.Log.Error("encryption failed", zap.Error(err))
+		return nil, err
+	}
+
+	return encrypted, nil
+}
+
+// EncryptToBase64 encrypts data and returns base64 encoded result.
+func (s *CryptoService) EncryptToBase64(data []byte) (string, error) {
+	encrypted, err := s.Encrypt(data)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(encrypted), nil
+}
+
+// Decrypt decrypts data using RSA OAEP with SHA-256 hash and the loaded private key.
+func (s *CryptoService) Decrypt(data []byte) ([]byte, error) {
+	if s.privateKey == nil {
+		return nil, errors.New("private key not loaded")
+	}
+
+	hash := sha256.New()
+	decrypted, err := rsa.DecryptOAEP(
+		hash,
+		rand.Reader,
+		s.privateKey,
+		data,
+		nil,
+	)
+	if err != nil {
+		logger.Log.Error("decryption failed", zap.Error(err))
+		return nil, err
+	}
+
+	return decrypted, nil
+}
+
+// DecryptFromBase64 decrypts base64 encoded encrypted data.
+func (s *CryptoService) DecryptFromBase64(data string) ([]byte, error) {
+	encrypted, err := base64.StdEncoding.DecodeString(data)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.Decrypt(encrypted)
+}
+
+// EncryptWithKey encrypts data using the provided public key.
+func (s *CryptoService) EncryptWithKey(publicKey *rsa.PublicKey, data []byte) ([]byte, error) {
+	hash := sha256.New()
+	encrypted, err := rsa.EncryptOAEP(
+		hash,
+		rand.Reader,
+		publicKey,
+		data,
+		nil,
+	)
+	if err != nil {
+		logger.Log.Error("encryption failed", zap.Error(err))
+		return nil, err
+	}
+
+	return encrypted, nil
+}
+
 var (
 	publicKey  *rsa.PublicKey
 	privateKey *rsa.PrivateKey
